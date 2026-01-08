@@ -3,7 +3,7 @@ NAME = ircserv
 CXX = c++
 CPPFLAGS = -Wall -Wextra -Werror -std=c++98 -g
 
-SRC = Server.cpp main.cpp \
+SRC = Server.cpp Channel.cpp main.cpp \
 
 OBJS = ${SRC:.cpp=.o}
 
