@@ -32,6 +32,7 @@ private:
     void initFdSet();
     void handleClientData(int client_fd, fd_set &masterSet, int maxFd);
     void handleClientMessage(int client_fd, const std::string& message);
+    void handleModeCommand(int client_fd, const std::string& message);
 };
 
 #endif

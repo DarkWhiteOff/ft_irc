@@ -11,10 +11,30 @@ public:
 
     void setUser(int fd, const std::string &nickname);
     const std::map<int, std::string> &getUsers() const;
+    void setOperator(int fd, const std::string &nickname);
+
+    void removeUser(int fd);
+    void removeOperator(int fd);
+
+    void setTopic(const std::string &topic);
+
+    void setI(bool value);
+    void setT(bool value);
+    void setK(bool value, const std::string &key = "");
+    void setL(bool value, int limit);
 
 private:
     std::string _name;
+    std::string _topic;
+    std::string _key;
+    int _limit;
     std::map<int, std::string> _users;
+    std::map<int, std::string> _operators;
+
+    bool i; // invite only
+    bool t; // topic settable by ops only
+    bool k; // key (password) protected
+    bool l; // limited user count
 };
 
 #endif

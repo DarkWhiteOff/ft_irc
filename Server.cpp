@@ -4,6 +4,7 @@
 #include <arpa/inet.h>
 #include <iostream>
 #include <unistd.h>
+#include <cstdlib>
 
 Server::Server(int port, const std::string &password)
     : _port(port), _password(password), _serverSocket(-1) {
@@ -125,7 +126,6 @@ void Server::handleClientMessage(int client_fd, const std::string& message)
     }
     else if (message.rfind("JOIN ", 0) == 0) {
         std::string channel = message.substr(5);
-        channel = "#" + channel;
         std::map<std::string, Channel>::iterator it = _channels.find(channel);
         if (it == _channels.end()) {
             _channels.insert(std::make_pair(channel, Channel(channel)));
@@ -170,7 +170,130 @@ void Server::handleClientMessage(int client_fd, const std::string& message)
             std::cout << "Le client n'a pas été trouvé pour le pseudo: " << target << std::endl;
         }
     }
+    else if (message.rfind("KICK ", 0) == 0) {
+        std::string rest = message.substr(5);
+        std::string channel = rest.substr(0, rest.find(' '));
+        std::string nickname = rest.substr(rest.find(' ') + 1);
+        std::map<std::string, Channel>::iterator it = _channels.find(channel);
+        if (it != _channels.end()) {
+            std::map<int, std::string>::const_iterator user_it = it->second.getUsers().begin();
+            std::map<int, std::string>::const_iterator user_ite = it->second.getUsers().end();
+            while (user_it != user_ite) {
+                if (user_it->second == nickname) {
+                    it->second.removeUser(user_it->first);
+                    send(user_it->first, "You have been kicked from the channel.\r\n", 39, 0);
+                    std::cout << "Client fd " << user_it->first << " a été expulsé du canal: " << channel << std::endl;
+                    break;
+                }
+                user_it++;
+            }
+        } else {
+            std::cout << "Le canal n'a pas été trouvé pour le nom: " << channel << std::endl;
+        }
+    }
+    else if (message.rfind("INVITE ", 0) == 0) {
+        std::string rest = message.substr(7);
+        std::string nickname = rest.substr(0, rest.find(' '));
+        std::string channel = rest.substr(rest.find(' ') + 1);
+        std::map<int, std::string>::iterator it = _clientNicknames.begin();
+        std::map<int, std::string>::iterator ite = _clientNicknames.end();
+        while (it != ite) {
+            if (it->second == nickname) {
+                std::string inviteMsg = "You have been invited to join " + channel + "\r\n";
+                send(it->first, inviteMsg.c_str(), inviteMsg.length(), 0);
+                std::cout << "Client fd " << it->first << " a été invité au canal: " << channel << std::endl;
+                break;
+            }
+            it++;
+        }
+    }
+    else if (message.rfind("TOPIC ", 0) == 0) {
+        std::string rest = message.substr(6);
+        std::string channel = rest.substr(0, rest.find(' '));
+        std::string topic = rest.substr(rest.find(' ') + 1);
+        std::map<std::string, Channel>::iterator it = _channels.find(channel);
+        if (it != _channels.end()) {
+            it->second.setTopic(topic);
+        }
+        std::cout << "Le sujet du canal " << channel << " a été défini sur: " << topic << std::endl;
+    }
+    else if (message.rfind("MODE ", 0) == 0) {
+        handleModeCommand(client_fd, message);
+    }
     else {
         std::cout << "Message reçu du client fd " << client_fd << ": " << message << std::endl;
+    }
+}
+
+void Server::handleModeCommand(int client_fd, const std::string& message)
+{
+    std::string rest = message.substr(5);
+    std::string channel = rest.substr(0, rest.find(' '));
+    std::string mode = rest.substr(rest.find(' ') + 1);
+    std::string mode_args = "";
+    if (mode.find(' ') != std::string::npos) {
+        mode_args = mode.substr(mode.find(' ') + 1);
+        mode = mode.substr(0, mode.find(' '));
+    }
+    std::map<std::string, Channel>::iterator it = _channels.find(channel);
+    if (it != _channels.end()) {
+        for (size_t i = 0; i < mode.length(); i++) {
+            if (mode[i] == '+') {
+                i++;
+                while (i < mode.length()) {
+                    switch (mode[i]) {
+                        case 'i':
+                            it->second.setI(true);
+                            break;
+                        case 't':
+                            it->second.setT(true);
+                            break;
+                        case 'k':
+                            it->second.setK(true, mode_args);
+                            break;
+                        case 'o':
+                        {
+                            it->second.setOperator(atoi(mode_args.c_str()), _clientNicknames[atoi(mode_args.c_str())]);
+                            break;
+                        }
+                        case 'l':
+                            it->second.setL(true, atoi(mode_args.c_str()));
+                            break;
+                        default:
+                            break;
+                    }
+                    i++;
+                }
+                i--;
+            } else if (mode[i] == '-') {
+                i++;
+                while (i < mode.length()) {
+                    switch (mode[i]) {
+                        case 'i':
+                            it->second.setI(false);
+                            break;
+                        case 't':
+                            it->second.setT(false);
+                            break;
+                        case 'k':
+                            it->second.setK(false, "");
+                            break;
+                        case 'o':
+                        {
+                            it->second.removeOperator(atoi(mode_args.c_str()));
+                            break;
+                        }
+                        case 'l':
+                            it->second.setL(false, 0);
+                            break;
+                        default:
+                            break;
+                    }
+                    i++;
+                }
+                i--;
+            }
+        }
+        std::cout << "Commande MODE reçue du client fd " << client_fd << ": " << message << std::endl;
     }
 }
