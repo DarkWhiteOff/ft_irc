@@ -17,17 +17,19 @@ public:
     void removeOperator(int fd);
 
     void setTopic(const std::string &topic);
+    std::string getTopic() const;
 
     void setI(bool value);
     void setT(bool value);
     void setK(bool value, const std::string &key = "");
     void setL(bool value, int limit);
 
+
 private:
     std::string _name;
     std::string _topic;
     std::string _key;
-    int _limit;
+    int         _limit;
     std::map<int, std::string> _users;
     std::map<int, std::string> _operators;
 
