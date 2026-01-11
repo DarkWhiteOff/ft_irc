@@ -163,6 +163,12 @@ void Server::handleClientMessage(int client_fd, const std::string& message)
 {
     if (message.rfind("NICK ", 0) == 0) {
         std::string nickname = message.substr(5);
+        if (nickname.empty()) {
+            send(client_fd, "Nickname cannot be empty.\r\n", 28, 0);
+            std::cout << "Le pseudo ne peut pas être vide pour le client fd "
+                      << client_fd << std::endl;
+            return ;
+        }
         std::map<int, std::string>::iterator it = _clientNicknames.begin();
         std::map<int, std::string>::iterator ite = _clientNicknames.end();
         while (it != ite) {
@@ -178,6 +184,12 @@ void Server::handleClientMessage(int client_fd, const std::string& message)
     }
     else if (message.rfind("USER ", 0) == 0)  {
         std::string username = message.substr(5);
+        if (username.empty()) {
+            send(client_fd, "Username cannot be empty.\r\n", 28, 0);
+            std::cout << "Le nom d'utilisateur ne peut pas être vide pour le client fd "
+                      << client_fd << std::endl;
+            return ;
+        }
         if (_clientUsernames.find(client_fd) != _clientUsernames.end()) {
             send(client_fd, "Username is already set.\r\n", 27, 0);
             std::cout << "Le nom d'utilisateur pour le client fd " << client_fd << " est déjà défini." << std::endl;
@@ -197,55 +209,69 @@ void Server::handleClientMessage(int client_fd, const std::string& message)
         std::cout << "Client fd " << client_fd << " a défini le nom d'utilisateur: " << username << std::endl;
     }
     else if (message.rfind("JOIN ", 0) == 0) {
-        std::string channel = message.substr(5);
-        std::string key = "";
-        if (message.find(' ') != std::string::npos) {
-            key = channel.substr(channel.find(' ') + 1);
-            channel = channel.substr(0, channel.find(' '));
+        std::string params  = message.substr(5);
+        std::string channel;
+        std::string key;
+
+        if (params.find(' ') == std::string::npos) {
+            channel = params;
+        } else {
+            channel = params.substr(0, params.find(' '));
+            key     = params.substr(params.find(' ') + 1);
         }
-        std::map<std::string, Channel>::iterator it = _channels.find(channel);
-        if (it != _channels.end() && it->second.getK()) {
-            if (key != it->second.getKey()) {
-                send(client_fd, "Incorrect channel key.\r\n", 25, 0);
-                std::cout << "Clé incorrecte pour le canal " << channel << std::endl;
-                return ;
-            }
+        if (channel.empty() || channel[0] != '#') {
+            send(client_fd, "Invalid channel name. Channel names must start with '#'.\r\n", 63, 0);
+            std::cout << "Nom de canal invalide reçu du client fd "
+                      << client_fd << ": " << channel << std::endl;
+            return ;
         }
+
         if (_clientNicknames.find(client_fd) == _clientNicknames.end()) {
             send(client_fd, "You must at least set a nickname before joining a channel.\r\n", 66, 0);
             std::cout << "Client fd " << client_fd << " doit définir un pseudo avant de rejoindre un canal." << std::endl;
             return ;
         }
-        if (it != _channels.end() && it->second.getL()) {
-            if (static_cast<int>(it->second.getUsers().size()) >= it->second.getLimit()) {
-                send(client_fd, "Channel is full.\r\n", 18, 0);
-                std::cout << "Le canal " << channel << " est plein." << std::endl;
-                return ;
-            }
-        }
-        else if (it != _channels.end() && it->second.getI()) {
+
+        std::map<std::string, Channel>::iterator it = _channels.find(channel);
+        if (it != _channels.end()) {
+            bool is_invited = false;
+            int invited_fd = -1;
             std::map<int, std::string>::const_iterator invited_it = it->second.getInvitedUsers().begin();
             std::map<int, std::string>::const_iterator invited_ite = it->second.getInvitedUsers().end();
-            bool is_invited = false;
             while (invited_it != invited_ite) {
                 if (invited_it->second == _clientNicknames[client_fd]) {
-                    it->second.setUser(client_fd, _clientNicknames[client_fd]);
-                    it->second.removeInvitedUser(client_fd);
                     is_invited = true;
+                    invited_fd = invited_it->first;
                     break;
                 }
                 ++invited_it;
             }
-            if (!is_invited) {
-                send(client_fd, "You are not invited to this channel.\r\n", 38, 0);
-                std::cout << "Client fd " << client_fd << " n'est pas invité au canal: " << channel << std::endl;
-                return ;
+            if (it->second.getL()) {
+                if (static_cast<int>(it->second.getUsers().size()) >= it->second.getLimit()) {
+                    send(client_fd, "Channel is full.\r\n", 18, 0);
+                    std::cout << "Le canal " << channel << " est plein." << std::endl;
+                    return ;
+                }
             }
-        }
-        else if (it != _channels.end() && !(it->second.getI())) {
+            if (it->second.getK() && !is_invited) {
+                if (key != it->second.getKey()) {
+                    send(client_fd, "Incorrect channel key.\r\n", 25, 0);
+                    std::cout << "Clé incorrecte pour le canal " << channel << std::endl;
+                    return ;
+                }
+            }
+            if (it->second.getI() && !is_invited) {
+                send(client_fd, "You are not invited to this channel.\r\n", 38, 0);
+                std::cout << "Client fd " << client_fd
+                        << " n'est pas invité au canal: "
+                        << channel << std::endl;
+                return;
+            }
+            if (is_invited && invited_fd != -1) {
+                it->second.removeInvitedUser(client_fd);
+            }
             it->second.setUser(client_fd, _clientNicknames[client_fd]);  
-        }
-        else{
+        } else {
             _channels.insert(std::make_pair(channel, Channel(channel)));
             it = _channels.find(channel);
             it->second.setUser(client_fd, _clientNicknames[client_fd]);
@@ -254,34 +280,40 @@ void Server::handleClientMessage(int client_fd, const std::string& message)
         std::cout << "Client fd " << client_fd << " a rejoint le canal: " << channel << std::endl;
     }
     else if (message.rfind("PRIVMSG ", 0) == 0) {
-        std::string rest = message.substr(8);
-        std::string target = rest.substr(0, rest.find(' '));
-        std::string msg = rest.substr(rest.find(' ') + 1);
-        bool found = false;
+        std::string params = message.substr(8);
+
+        if (params.find(' ') == std::string::npos) {
+            std::cout << "PRIVMSG invalide de fd"
+                    << client_fd << ": " << params << std::endl;
+            return;
+        }
+        std::string target = params.substr(0, params.find(' '));
+        std::string msg    = params.substr(params.find(' ') + 1);
+        if (target.empty() || msg.empty()) {
+            std::cout << "PRIVMSG invalide de fd "
+                  << client_fd << ": " << params << std::endl;
+            return;
+        }
+        msg = msg + "\r\n";
+        
         if (target[0] == '#') {
-            std::map<std::string, Channel>::iterator it = _channels.begin();
-            std::map<std::string, Channel>::iterator ite = _channels.end();
-            while (it != ite) {
-                if (it->first == target) {
-                    found = true;
-                    std::map<int, std::string>::const_iterator user_it = it->second.getUsers().begin();
-                    std::map<int, std::string>::const_iterator user_ite = it->second.getUsers().end();
-                    while (user_it != user_ite) {
-                        if (user_it->first != client_fd) {
-                            send(user_it->first, msg.c_str(), msg.length(), 0);
-                            std::cout << "Envoi du message au client fd " << user_it->first << ": " << msg << std::endl;
-                        }
-                        user_it++;
-                    }
-                   break ; 
-                }
-                it++;
-            }
-            if (!found) {
+            std::map<std::string, Channel>::iterator it = _channels.find(target);
+            if (it == _channels.end()) {
                 std::cout << "Le canal n'a pas été trouvé pour le nom: "
-                          << target << std::endl;
+                        << target << std::endl;
+                return;
+            }
+            std::map<int, std::string>::const_iterator user_it = it->second.getUsers().begin();
+            std::map<int, std::string>::const_iterator user_ite = it->second.getUsers().end();
+            while (user_it != user_ite) {
+                if (user_it->first != client_fd) {
+                    send(user_it->first, msg.c_str(), msg.length(), 0);
+                    std::cout << "Envoi du message au client fd " << user_it->first << ": " << msg << std::endl;
+                }
+                user_it++;
             }
         } else {
+            bool found = false;
             std::map<int, std::string>::iterator it = _clientNicknames.begin();
             std::map<int, std::string>::iterator ite = _clientNicknames.end();
             while (it != ite) {
@@ -297,34 +329,62 @@ void Server::handleClientMessage(int client_fd, const std::string& message)
                 std::cout << "Le client n'a pas été trouvé pour le pseudo: " << target << std::endl;
         }
     }
-    std::string rest = message.substr(7);
-    std::string channel = rest.substr(0, rest.find(' '));
-    std::map<std::string, Channel>::iterator it = _channels.find(channel);
-    if (it != _channels.end()) {
-        std::map<int, std::string>::const_iterator it_op = it->second.getOperators().begin();
-        std::map<int, std::string>::const_iterator ite_op = it->second.getOperators().end();
-        bool found = false;
-        while (it_op != ite_op) {
-            if (it_op->first == client_fd) {
-                handleOperatorCommands(client_fd, message);
+    else if (message.rfind("KICK ", 0) == 0 ||
+         message.rfind("INVITE ", 0) == 0 ||
+         message.rfind("MODE ", 0) == 0 ||
+         message.rfind("TOPIC ", 0) == 0) {
+        std::string params = message.substr(message.find(' ') + 1);
+        std::string channel;
+
+        bool no_params = false;
+        if (params.find(' ') == std::string::npos) {
+            no_params = true;
+            channel = params;
+        } else
+            channel = params.substr(0, params.find(' '));
+
+        std::map<std::string, Channel>::iterator it = _channels.find(channel);
+        if (it == _channels.end()) {
+            std::cout << "Le canal n'a pas été trouvé pour le nom: "
+                      << channel << std::endl;
+            return ;
+        }
+        bool isOperator = (it->second.getOperators().find(client_fd) != it->second.getOperators().end());
+        if (message.rfind("TOPIC ", 0) == 0) {
+            if ((isOperator || !it->second.getT()) || no_params) {
                 handleTopicCommand(client_fd, message);
-                found = true;
-                return ;
+            } else {
+                std::cout << "Client fd " << client_fd
+                        << " n'est pas opérateur et le canal "
+                        << channel << " est en mode +t (TOPIC restreint)."
+                        << std::endl;
             }
-            ++it_op;
+        } else {
+            if (isOperator) {
+                handleOperatorCommands(client_fd, message);
+            } else {
+                std::cout << "Client fd " << client_fd
+                    << " n'est pas opérateur sur le canal "
+                    << channel << " pour la commande: "
+                    << message << std::endl;
+            }
         }
-        if (!found && !it->second.getT()) {
-            handleTopicCommand(client_fd, message);
-        }
+    }
+    else {
+        std::cout << "Commande inconnue reçue du client fd "
+                  << client_fd << ": " << message << std::endl;
     }
 }
 
 void Server::handleOperatorCommands(int client_fd, const std::string& message)
 {
     if (message.rfind("KICK ", 0) == 0) {
-        std::string rest = message.substr(5);
-        std::string channel = rest.substr(0, rest.find(' '));
-        std::string nickname = rest.substr(rest.find(' ') + 1);
+        std::string params  = message.substr(5);
+        if (params.find(' ') == std::string::npos)
+            return;
+        std::string channel  = params.substr(0, params.find(' '));
+        std::string nickname = params.substr(params.find(' ') + 1);
+
         std::map<std::string, Channel>::iterator it = _channels.find(channel);
         if (it != _channels.end()) {
             std::map<int, std::string>::const_iterator user_it = it->second.getUsers().begin();
@@ -332,6 +392,7 @@ void Server::handleOperatorCommands(int client_fd, const std::string& message)
             while (user_it != user_ite) {
                 if (user_it->second == nickname) {
                     it->second.removeUser(user_it->first);
+                    it->second.removeOperator(user_it->first);
                     send(user_it->first, "You have been kicked from the channel.\r\n", 41, 0);
                     std::cout << "Client fd " << user_it->first << " a été expulsé du canal: " << channel << std::endl;
                     break;
@@ -343,12 +404,16 @@ void Server::handleOperatorCommands(int client_fd, const std::string& message)
         }
     }
     else if (message.rfind("INVITE ", 0) == 0) {
-        std::string rest = message.substr(7);
-        std::string channel = rest.substr(0, rest.find(' '));
-        std::string nickname = rest.substr(rest.find(' ') + 1);
+        std::string params  = message.substr(7);
+        if (params.find(' ') == std::string::npos)
+            return;
+        std::string channel  = params.substr(0, params.find(' '));
+        std::string nickname = params.substr(params.find(' ') + 1);
+
         std::map<int, std::string>::iterator it = _clientNicknames.begin();
         std::map<int, std::string>::iterator ite = _clientNicknames.end();
         std::map<std::string, Channel>::iterator it_channel = _channels.find(channel);
+        bool found = false;
         if (it_channel != _channels.end()) {
             while (it != ite) {
                 if (it->second == nickname) {
@@ -356,12 +421,16 @@ void Server::handleOperatorCommands(int client_fd, const std::string& message)
                     std::string inviteMsg = "You have been invited to join " + channel + "\r\n";
                     send(it->first, inviteMsg.c_str(), inviteMsg.length(), 0);
                     std::cout << "Client fd " << it->first << " a été invité au canal: " << channel << std::endl;
+                    found = true;
                     break;
                 }
                 it++;
             }
         } else {
             std::cout << "Le canal n'a pas été trouvé pour le nom: " << channel << std::endl;
+        }
+        if (!found) {
+            std::cout << "Le client n'a pas été trouvé pour le pseudo: " << nickname << std::endl;
         }
     }
     else if (message.rfind("MODE ", 0) == 0) {
@@ -372,40 +441,53 @@ void Server::handleOperatorCommands(int client_fd, const std::string& message)
 void Server::handleTopicCommand(int client_fd, const std::string& message)
 {
     (void) client_fd;
-    if (message.rfind("TOPIC ", 0) == 0) {
-        std::string rest = message.substr(6);
-        std::string channel = rest;
-        std::string topic = "";
-        if (channel.find(' ') != std::string::npos) {
-            topic = channel.substr(channel.find(' ') + 1);
-            channel = channel.substr(0, channel.find(' '));
-        }
-        std::map<std::string, Channel>::iterator it = _channels.find(channel);
-        if (it == _channels.end()) {
-            std::cout << "Le canal n'a pas été trouvé pour le nom: "
-                      << channel << std::endl;
-            return;
-        }
-        if (topic.empty()) {
-            std::cout << "Le sujet actuel du canal " << channel
-                      << " est: " << it->second.getTopic() << std::endl;
-            return;
-        }
-        it->second.setTopic(topic);
-        std::cout << "Le sujet du canal " << channel << " a été défini sur: " << topic << std::endl;
+    if (message.rfind("TOPIC ", 0) != 0)
+        return;
+    std::string params = message.substr(6);
+    std::string channel;
+    std::string topic;
+
+    std::string::size_type spacePos = params.find(' ');
+    if (spacePos == std::string::npos) {
+        channel = params;
+    } else {
+        channel = params.substr(0, spacePos);
+        topic   = params.substr(spacePos + 1);
     }
+
+    std::map<std::string, Channel>::iterator it = _channels.find(channel);
+    if (it == _channels.end()) {
+        std::cout << "Le canal n'a pas été trouvé pour le nom: "
+                    << channel << std::endl;
+        return;
+    }
+    if (topic.empty()) {
+        std::cout << "Le sujet actuel du canal " << channel
+                    << " est: " << it->second.getTopic() << std::endl;
+        return;
+    }
+    it->second.setTopic(topic);
+    std::cout << "Le sujet du canal " << channel << " a été défini sur: " << topic << std::endl;
 }
 
 void Server::handleModeCommand(int client_fd, const std::string& message)
 {
-    std::string rest = message.substr(5);
-    std::string channel = rest.substr(0, rest.find(' '));
-    std::string mode = rest.substr(rest.find(' ') + 1);
-    std::string mode_args = "";
-    if (mode.find(' ') != std::string::npos) {
-        mode_args = mode.substr(mode.find(' ') + 1);
-        mode = mode.substr(0, mode.find(' '));
+    (void) client_fd;
+    std::string params = message.substr(5);
+    std::string channel;
+    std::string mode;
+    std::string mode_args;
+    if (params.find(' ') == std::string::npos)
+        return;
+    channel = params.substr(0, params.find(' '));
+    std::string rest = params.substr(params.find(' ') + 1);
+    if (rest.find(' ') == std::string::npos) {
+        mode = rest;
+    } else {
+        mode      = rest.substr(0, rest.find(' '));
+        mode_args = rest.substr(rest.find(' ') + 1);
     }
+
     std::map<std::string, Channel>::iterator it = _channels.find(channel);
     if (it == _channels.end()) {
         std::cout << "Le canal n'a pas été trouvé pour le nom: "
@@ -427,14 +509,21 @@ void Server::handleModeCommand(int client_fd, const std::string& message)
                         it->second.setK(true, mode_args);
                         break;
                     case 'o': {
-                        std::map<int, std::string>::const_iterator it_nick  = _clientNicknames.begin();
-                        std::map<int, std::string>::const_iterator ite_nick = _clientNicknames.end();
-                        while (it_nick != ite_nick) {
-                            if (it_nick->second == mode_args) {
-                                it->second.setOperator(it_nick->first, mode_args);
+                        std::map<int, std::string>::const_iterator it_users = it->second.getUsers().begin();
+                        std::map<int, std::string>::const_iterator ite_users = it->second.getUsers().end();
+                        bool user_found = false;
+                        while (it_users != ite_users) {
+                            if (it_users->second == mode_args) {
+                                it->second.setOperator(it_users->first, mode_args);
+                                user_found = true;
                                 break;
                             }
-                            ++it_nick;
+                            ++it_users;
+                        }
+                        if (!user_found) {
+                            std::cout << "L'utilisateur " << mode_args
+                                        << " n'est pas dans le canal " << channel
+                                        << std::endl;
                         }
                         break;
                     }
@@ -461,14 +550,21 @@ void Server::handleModeCommand(int client_fd, const std::string& message)
                         it->second.setK(false, "");
                         break;
                     case 'o': {
-                        std::map<int, std::string>::const_iterator it_nick  = _clientNicknames.begin();
-                        std::map<int, std::string>::const_iterator ite_nick = _clientNicknames.end();
-                        while (it_nick != ite_nick) {
-                            if (it_nick->second == mode_args) {
-                                it->second.removeOperator(it_nick->first);
+                        std::map<int, std::string>::const_iterator it_ops = it->second.getOperators().begin();
+                        std::map<int, std::string>::const_iterator ite_ops = it->second.getOperators().end();
+                        bool op_found = false;
+                        while (it_ops != ite_ops) {
+                            if (it_ops->second == mode_args) {
+                                it->second.removeOperator(it_ops->first);
+                                op_found = true;
                                 break;
                             }
-                            ++it_nick;
+                            ++it_ops;
+                        }
+                        if (!op_found) {
+                            std::cout << "L'opérateur " << mode_args
+                                        << " n'est pas dans le canal " << channel
+                                        << std::endl;
                         }
                         break;
                     }
@@ -483,5 +579,4 @@ void Server::handleModeCommand(int client_fd, const std::string& message)
             --i;
         }
     }
-    std::cout << "Commande MODE reçue du client fd " << client_fd << ": " << message << std::endl;
 }
