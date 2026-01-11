@@ -35,6 +35,7 @@ private:
     void handleClientMessage(int client_fd, const std::string &message);
     void handleOperatorCommands(int client_fd, const std::string &message);
     void handleModeCommand(int client_fd, const std::string &message);
+    void handleTopicCommand(int client_fd, const std::string &message);
 
     void removeClient(int client_fd, fd_set &masterSet);
 };

@@ -198,13 +198,32 @@ void Server::handleClientMessage(int client_fd, const std::string& message)
     }
     else if (message.rfind("JOIN ", 0) == 0) {
         std::string channel = message.substr(5);
+        std::string key = "";
+        if (message.find(' ') != std::string::npos) {
+            key = channel.substr(channel.find(' ') + 1);
+            channel = channel.substr(0, channel.find(' '));
+        }
+        std::map<std::string, Channel>::iterator it = _channels.find(channel);
+        if (it != _channels.end() && it->second.getK()) {
+            if (key != it->second.getKey()) {
+                send(client_fd, "Incorrect channel key.\r\n", 25, 0);
+                std::cout << "Clé incorrecte pour le canal " << channel << std::endl;
+                return ;
+            }
+        }
         if (_clientNicknames.find(client_fd) == _clientNicknames.end()) {
             send(client_fd, "You must at least set a nickname before joining a channel.\r\n", 66, 0);
             std::cout << "Client fd " << client_fd << " doit définir un pseudo avant de rejoindre un canal." << std::endl;
             return ;
         }
-        std::map<std::string, Channel>::iterator it = _channels.find(channel);
-        if (it != _channels.end() && it->second.getI()) {
+        if (it != _channels.end() && it->second.getL()) {
+            if (static_cast<int>(it->second.getUsers().size()) >= it->second.getLimit()) {
+                send(client_fd, "Channel is full.\r\n", 18, 0);
+                std::cout << "Le canal " << channel << " est plein." << std::endl;
+                return ;
+            }
+        }
+        else if (it != _channels.end() && it->second.getI()) {
             std::map<int, std::string>::const_iterator invited_it = it->second.getInvitedUsers().begin();
             std::map<int, std::string>::const_iterator invited_ite = it->second.getInvitedUsers().end();
             bool is_invited = false;
@@ -284,12 +303,18 @@ void Server::handleClientMessage(int client_fd, const std::string& message)
     if (it != _channels.end()) {
         std::map<int, std::string>::const_iterator it_op = it->second.getOperators().begin();
         std::map<int, std::string>::const_iterator ite_op = it->second.getOperators().end();
+        bool found = false;
         while (it_op != ite_op) {
             if (it_op->first == client_fd) {
                 handleOperatorCommands(client_fd, message);
+                handleTopicCommand(client_fd, message);
+                found = true;
                 return ;
             }
             ++it_op;
+        }
+        if (!found && !it->second.getT()) {
+            handleTopicCommand(client_fd, message);
         }
     }
 }
@@ -323,18 +348,31 @@ void Server::handleOperatorCommands(int client_fd, const std::string& message)
         std::string nickname = rest.substr(rest.find(' ') + 1);
         std::map<int, std::string>::iterator it = _clientNicknames.begin();
         std::map<int, std::string>::iterator ite = _clientNicknames.end();
-        while (it != ite) {
-            if (it->second == nickname) {
-                _channels[channel].setInvitedUser(it->first, nickname);
-                std::string inviteMsg = "You have been invited to join " + channel + "\r\n";
-                send(it->first, inviteMsg.c_str(), inviteMsg.length(), 0);
-                std::cout << "Client fd " << it->first << " a été invité au canal: " << channel << std::endl;
-                break;
+        std::map<std::string, Channel>::iterator it_channel = _channels.find(channel);
+        if (it_channel != _channels.end()) {
+            while (it != ite) {
+                if (it->second == nickname) {
+                    it_channel->second.setInvitedUser(it->first, nickname);
+                    std::string inviteMsg = "You have been invited to join " + channel + "\r\n";
+                    send(it->first, inviteMsg.c_str(), inviteMsg.length(), 0);
+                    std::cout << "Client fd " << it->first << " a été invité au canal: " << channel << std::endl;
+                    break;
+                }
+                it++;
             }
-            it++;
+        } else {
+            std::cout << "Le canal n'a pas été trouvé pour le nom: " << channel << std::endl;
         }
     }
-    else if (message.rfind("TOPIC ", 0) == 0) {
+    else if (message.rfind("MODE ", 0) == 0) {
+        handleModeCommand(client_fd, message);
+    }
+}
+
+void Server::handleTopicCommand(int client_fd, const std::string& message)
+{
+    (void) client_fd;
+    if (message.rfind("TOPIC ", 0) == 0) {
         std::string rest = message.substr(6);
         std::string channel = rest;
         std::string topic = "";
@@ -355,9 +393,6 @@ void Server::handleOperatorCommands(int client_fd, const std::string& message)
         }
         it->second.setTopic(topic);
         std::cout << "Le sujet du canal " << channel << " a été défini sur: " << topic << std::endl;
-    }
-    else if (message.rfind("MODE ", 0) == 0) {
-        handleModeCommand(client_fd, message);
     }
 }
 

@@ -32,6 +32,8 @@ public:
     bool getT() const;
     bool getK() const;
     bool getL() const;
+    int getLimit() const;
+    std::string getKey() const;
 
 private:
     std::string _name;

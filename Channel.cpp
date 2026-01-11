@@ -26,6 +26,14 @@ const std::map<int, std::string> &Channel::getOperators() const {
     return _operators;
 }
 
+void Channel::setInvitedUser(int fd, const std::string &nickname) {
+    _invitedUsers[fd] = nickname;
+}
+
+const std::map<int, std::string> &Channel::getInvitedUsers() const {
+    return _invitedUsers;
+}
+
 void Channel::removeUser(int fd) {
     _users.erase(fd);
 }
@@ -110,4 +118,12 @@ bool Channel::getK() const {
 
 bool Channel::getL() const {
     return l;
+}
+
+int Channel::getLimit() const {
+    return _limit;
+}
+
+std::string Channel::getKey() const {
+    return _key;
 }
