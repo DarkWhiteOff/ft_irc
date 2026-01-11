@@ -22,12 +22,20 @@ void Channel::setOperator(int fd, const std::string &nickname) {
     _operators[fd] = nickname;
 }
 
+const std::map<int, std::string> &Channel::getOperators() const {
+    return _operators;
+}
+
 void Channel::removeUser(int fd) {
     _users.erase(fd);
 }
 
 void Channel::removeOperator(int fd) {
     _operators.erase(fd);
+}
+
+void Channel::removeInvitedUser(int fd) {
+    _invitedUsers.erase(fd);
 }
 
 void Channel::setTopic(const std::string &topic) {
@@ -86,4 +94,20 @@ void Channel::setL(bool value, int limit) {
         std::cout << "Channel " << _name
                   << " unset from limited user count mode." << std::endl;
     }
+}
+
+bool Channel::getI() const {
+    return i;
+}
+
+bool Channel::getT() const {
+    return t;
+}
+
+bool Channel::getK() const {
+    return k;
+}
+
+bool Channel::getL() const {
+    return l;
 }

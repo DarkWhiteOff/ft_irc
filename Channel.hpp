@@ -12,9 +12,13 @@ public:
     void setUser(int fd, const std::string &nickname);
     const std::map<int, std::string> &getUsers() const;
     void setOperator(int fd, const std::string &nickname);
+    const std::map<int, std::string> &getOperators() const;
+    void setInvitedUser(int fd, const std::string &nickname);
+    const std::map<int, std::string> &getInvitedUsers() const;
 
     void removeUser(int fd);
     void removeOperator(int fd);
+    void removeInvitedUser(int fd);
 
     void setTopic(const std::string &topic);
     std::string getTopic() const;
@@ -24,6 +28,10 @@ public:
     void setK(bool value, const std::string &key = "");
     void setL(bool value, int limit);
 
+    bool getI() const;
+    bool getT() const;
+    bool getK() const;
+    bool getL() const;
 
 private:
     std::string _name;
@@ -32,6 +40,7 @@ private:
     int         _limit;
     std::map<int, std::string> _users;
     std::map<int, std::string> _operators;
+    std::map<int, std::string> _invitedUsers;
 
     bool i; // invite only
     bool t; // topic settable by ops only

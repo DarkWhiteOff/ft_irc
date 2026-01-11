@@ -97,7 +97,6 @@ void Server::removeClient(int client_fd, fd_set &masterSet)
 {
     std::cout << "Client déconnecté, socket fd: " << client_fd << std::endl;
 
-    // Retirer le client de tous les channels
     std::map<std::string, Channel>::iterator ch_it  = _channels.begin();
     std::map<std::string, Channel>::iterator ch_ite = _channels.end();
     while (ch_it != ch_ite) {
@@ -106,13 +105,11 @@ void Server::removeClient(int client_fd, fd_set &masterSet)
         ++ch_it;
     }
 
-    // Nettoyer les maps associées au client
     _clientBuffers.erase(client_fd);
     _clientAuthentifieds.erase(client_fd);
     _clientNicknames.erase(client_fd);
     _clientUsernames.erase(client_fd);
 
-    // Fermer le fd et le retirer du set
     close(client_fd);
     FD_CLR(client_fd, &masterSet);
 }
@@ -207,11 +204,34 @@ void Server::handleClientMessage(int client_fd, const std::string& message)
             return ;
         }
         std::map<std::string, Channel>::iterator it = _channels.find(channel);
-        if (it == _channels.end()) {
+        if (it != _channels.end() && it->second.getI()) {
+            std::map<int, std::string>::const_iterator invited_it = it->second.getInvitedUsers().begin();
+            std::map<int, std::string>::const_iterator invited_ite = it->second.getInvitedUsers().end();
+            bool is_invited = false;
+            while (invited_it != invited_ite) {
+                if (invited_it->second == _clientNicknames[client_fd]) {
+                    it->second.setUser(client_fd, _clientNicknames[client_fd]);
+                    it->second.removeInvitedUser(client_fd);
+                    is_invited = true;
+                    break;
+                }
+                ++invited_it;
+            }
+            if (!is_invited) {
+                send(client_fd, "You are not invited to this channel.\r\n", 38, 0);
+                std::cout << "Client fd " << client_fd << " n'est pas invité au canal: " << channel << std::endl;
+                return ;
+            }
+        }
+        else if (it != _channels.end() && !(it->second.getI())) {
+            it->second.setUser(client_fd, _clientNicknames[client_fd]);  
+        }
+        else{
             _channels.insert(std::make_pair(channel, Channel(channel)));
             it = _channels.find(channel);
+            it->second.setUser(client_fd, _clientNicknames[client_fd]);
+            it->second.setOperator(client_fd, _clientNicknames[client_fd]);
         }
-        it->second.setUser(client_fd, _clientNicknames[client_fd]);
         std::cout << "Client fd " << client_fd << " a rejoint le canal: " << channel << std::endl;
     }
     else if (message.rfind("PRIVMSG ", 0) == 0) {
@@ -258,7 +278,20 @@ void Server::handleClientMessage(int client_fd, const std::string& message)
                 std::cout << "Le client n'a pas été trouvé pour le pseudo: " << target << std::endl;
         }
     }
-    handleOperatorCommands(client_fd, message);
+    std::string rest = message.substr(7);
+    std::string channel = rest.substr(0, rest.find(' '));
+    std::map<std::string, Channel>::iterator it = _channels.find(channel);
+    if (it != _channels.end()) {
+        std::map<int, std::string>::const_iterator it_op = it->second.getOperators().begin();
+        std::map<int, std::string>::const_iterator ite_op = it->second.getOperators().end();
+        while (it_op != ite_op) {
+            if (it_op->first == client_fd) {
+                handleOperatorCommands(client_fd, message);
+                return ;
+            }
+            ++it_op;
+        }
+    }
 }
 
 void Server::handleOperatorCommands(int client_fd, const std::string& message)
@@ -286,12 +319,13 @@ void Server::handleOperatorCommands(int client_fd, const std::string& message)
     }
     else if (message.rfind("INVITE ", 0) == 0) {
         std::string rest = message.substr(7);
-        std::string nickname = rest.substr(0, rest.find(' '));
-        std::string channel = rest.substr(rest.find(' ') + 1);
+        std::string channel = rest.substr(0, rest.find(' '));
+        std::string nickname = rest.substr(rest.find(' ') + 1);
         std::map<int, std::string>::iterator it = _clientNicknames.begin();
         std::map<int, std::string>::iterator ite = _clientNicknames.end();
         while (it != ite) {
             if (it->second == nickname) {
+                _channels[channel].setInvitedUser(it->first, nickname);
                 std::string inviteMsg = "You have been invited to join " + channel + "\r\n";
                 send(it->first, inviteMsg.c_str(), inviteMsg.length(), 0);
                 std::cout << "Client fd " << it->first << " a été invité au canal: " << channel << std::endl;
@@ -324,9 +358,6 @@ void Server::handleOperatorCommands(int client_fd, const std::string& message)
     }
     else if (message.rfind("MODE ", 0) == 0) {
         handleModeCommand(client_fd, message);
-    }
-    else {
-        std::cout << "Message reçu du client fd " << client_fd << ": " << message << std::endl;
     }
 }
 
@@ -361,10 +392,14 @@ void Server::handleModeCommand(int client_fd, const std::string& message)
                         it->second.setK(true, mode_args);
                         break;
                     case 'o': {
-                        int fd = std::atoi(mode_args.c_str());
-                        std::map<int, std::string>::iterator itNick = _clientNicknames.find(fd);
-                        if (itNick != _clientNicknames.end()) {
-                            it->second.setOperator(fd, itNick->second);
+                        std::map<int, std::string>::const_iterator it_nick  = _clientNicknames.begin();
+                        std::map<int, std::string>::const_iterator ite_nick = _clientNicknames.end();
+                        while (it_nick != ite_nick) {
+                            if (it_nick->second == mode_args) {
+                                it->second.setOperator(it_nick->first, mode_args);
+                                break;
+                            }
+                            ++it_nick;
                         }
                         break;
                     }
@@ -391,8 +426,15 @@ void Server::handleModeCommand(int client_fd, const std::string& message)
                         it->second.setK(false, "");
                         break;
                     case 'o': {
-                        int fd = std::atoi(mode_args.c_str());
-                        it->second.removeOperator(fd);
+                        std::map<int, std::string>::const_iterator it_nick  = _clientNicknames.begin();
+                        std::map<int, std::string>::const_iterator ite_nick = _clientNicknames.end();
+                        while (it_nick != ite_nick) {
+                            if (it_nick->second == mode_args) {
+                                it->second.removeOperator(it_nick->first);
+                                break;
+                            }
+                            ++it_nick;
+                        }
                         break;
                     }
                     case 'l':
