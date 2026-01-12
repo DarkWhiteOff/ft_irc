@@ -10,10 +10,11 @@ public:
     ~Channel();
 
     void setUser(int fd, const std::string &nickname);
-    const std::map<int, std::string> &getUsers() const;
     void setOperator(int fd, const std::string &nickname);
-    const std::map<int, std::string> &getOperators() const;
     void setInvitedUser(int fd, const std::string &nickname);
+
+    const std::map<int, std::string> &getUsers() const;
+    const std::map<int, std::string> &getOperators() const;
     const std::map<int, std::string> &getInvitedUsers() const;
 
     void removeUser(int fd);

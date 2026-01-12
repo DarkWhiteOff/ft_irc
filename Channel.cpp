@@ -14,20 +14,20 @@ void Channel::setUser(int fd, const std::string &nickname) {
     _users[fd] = nickname;
 }
 
-const std::map<int, std::string> &Channel::getUsers() const {
-    return _users;
-}
-
 void Channel::setOperator(int fd, const std::string &nickname) {
     _operators[fd] = nickname;
 }
 
-const std::map<int, std::string> &Channel::getOperators() const {
-    return _operators;
-}
-
 void Channel::setInvitedUser(int fd, const std::string &nickname) {
     _invitedUsers[fd] = nickname;
+}
+
+const std::map<int, std::string> &Channel::getUsers() const {
+    return _users;
+}
+
+const std::map<int, std::string> &Channel::getOperators() const {
+    return _operators;
 }
 
 const std::map<int, std::string> &Channel::getInvitedUsers() const {
