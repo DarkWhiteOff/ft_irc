@@ -34,18 +34,31 @@ void Server::initServerSocket()
         std::cerr << "Erreur : échec de la création du socket\n";
         return;
     }
+
+    int opt = 1;
+    if (setsockopt(_serverSocket, SOL_SOCKET, SO_REUSEADDR,
+                   &opt, sizeof(opt)) < 0) {
+        close(_serverSocket);
+        _serverSocket = -1;
+        throw std::runtime_error("Erreur : échec de setsockopt(SO_REUSEADDR)");
+    }
+
     sockaddr_in serverSocketAddr;
     serverSocketAddr.sin_family = AF_INET;
     serverSocketAddr.sin_port = htons(_port);
     inet_pton(AF_INET, "0.0.0.0", &serverSocketAddr.sin_addr);
     if (bind(_serverSocket, (sockaddr*)&serverSocketAddr, sizeof(serverSocketAddr)) < 0) {
         close (_serverSocket);
-        std::cerr << "Erreur : échec du bind (le port est peut-être déjà pris)\n";
+        _serverSocket = -1;
+        // std::cerr << "Erreur : échec du bind (le port est peut-être déjà pris)\n";
+        throw std::runtime_error("Erreur : échec du bind (le port est peut-être déjà pris)");
         return ;
     }
     if (listen(_serverSocket, SOMAXCONN) < 0) {
         close (_serverSocket);
-        std::cerr << "Erreur : échec de l'écoute\n";
+        _serverSocket = -1;
+        // std::cerr << "Erreur : échec de l'écoute\n";
+        throw std::runtime_error("Erreur : échec de l'écoute");
         return ;
     }
     std::cout << "Serveur initialisé sur le port " << _port << std::endl;
