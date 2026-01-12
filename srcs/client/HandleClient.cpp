@@ -16,9 +16,39 @@ void Server::removeClient(int client_fd, fd_set &masterSet)
     _clientAuthentifieds.erase(client_fd);
     _clientNicknames.erase(client_fd);
     _clientUsernames.erase(client_fd);
+    _clientRegistered.erase(client_fd);
 
     close(client_fd);
     FD_CLR(client_fd, &masterSet);
+}
+
+void Server::tryRegisterClient(int client_fd)
+{
+    if (_clientRegistered[client_fd])
+        return;
+
+    std::map<int, bool>::iterator itAuth = _clientAuthentifieds.find(client_fd);
+    bool hasPass = (itAuth != _clientAuthentifieds.end() && itAuth->second);
+    if (!hasPass)
+        return;
+
+    std::map<int, std::string>::iterator itNick = _clientNicknames.find(client_fd);
+    if (itNick == _clientNicknames.end())
+        return;
+
+    std::map<int, std::string>::iterator itUser = _clientUsernames.find(client_fd);
+    if (itUser == _clientUsernames.end())
+        return;
+
+    const std::string &nick = itNick->second;
+
+    _clientRegistered[client_fd] = true;
+
+    // Envoi des replies minimales attendues par un client IRC (001-004) //
+    sendReply(client_fd, "001", nick, "Welcome to the ft_irc server!");
+    sendReply(client_fd, "002", nick, "Your host is " SERVER_NAME ", running version 1.0");
+    sendReply(client_fd, "003", nick, "This server was created just now");
+    sendReply(client_fd, "004", nick, SERVER_NAME " 1.0 oi oi");
 }
 
 void Server::handleClientData(int client_fd, fd_set &masterSet, int maxFd)
@@ -54,7 +84,10 @@ void Server::handleClientData(int client_fd, fd_set &masterSet, int maxFd)
                 }
             }
             else if (_clientAuthentifieds[client_fd])
+            {
                 handleClientMessage(client_fd, message);
+                tryRegisterClient(client_fd);
+            }
             else {
                 send(client_fd,
                  "You must authenticate first using PASS command.\r\n", 52, 0);

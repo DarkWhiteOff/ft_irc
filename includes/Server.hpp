@@ -17,6 +17,8 @@
 #include <exception>
 #include "Channel.hpp"
 
+#define SERVER_NAME "ft_irc"
+
 class Server {
 public:
     Server(int port, const std::string &password);
@@ -35,6 +37,7 @@ private:
     std::map<int, bool>        _clientAuthentifieds;
     std::map<int, std::string> _clientNicknames;
     std::map<int, std::string> _clientUsernames;
+    std::map<int, bool>        _clientRegistered;
 
     std::map<std::string, Channel> _channels;
 
@@ -48,6 +51,9 @@ private:
     void handleTopicCommand(int client_fd, const std::string &message);
 
     void removeClient(int client_fd, fd_set &masterSet);
+    void tryRegisterClient(int client_fd);
+    void sendReply(int client_fd, const std::string &code,
+                   const std::string &nickname, const std::string &message);
 
     class SocketCreationException : public std::exception
     {

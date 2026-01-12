@@ -83,6 +83,7 @@ void Server::run() {
                         _maxFd = clientSocket;
                     }
                     _clientAuthentifieds[clientSocket] = false;
+                    _clientRegistered[clientSocket] = false;
                     std::cout << "New connection accepted, socket fd: " << clientSocket << std::endl;
                 } else {
                     handleClientData(fd, _masterSet, _maxFd);

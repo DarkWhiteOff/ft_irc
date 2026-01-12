@@ -170,6 +170,16 @@ void Server::handleClientMessage(int client_fd, const std::string& message)
                 std::cout << "The client was not found for the nickname: " << target << std::endl;
         }
     }
+    else if (message.rfind("PING", 0) == 0) {
+        std::string params = message.substr(4);
+        if (!params.empty() && params[0] == ' ')
+            params.erase(0, 1);
+        std::string reply = "PONG";
+        if (!params.empty())
+            reply += " " + params;
+        reply += "\r\n";
+        send(client_fd, reply.c_str(), reply.length(), 0);
+    }
     else if (message.rfind("KICK ", 0) == 0 ||
          message.rfind("INVITE ", 0) == 0 ||
          message.rfind("MODE ", 0) == 0 ||
