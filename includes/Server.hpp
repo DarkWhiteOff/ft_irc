@@ -5,6 +5,16 @@
 #include <vector>
 #include <map>
 #include <sys/select.h>
+
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <iostream>
+#include <unistd.h>
+#include <cstdlib>
+
+#include <cstring>
+#include <stdexcept>
 #include "Channel.hpp"
 
 class Server {

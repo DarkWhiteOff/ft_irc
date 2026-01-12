@@ -1,23 +1,29 @@
 NAME = ircserv
 
-CXX = c++
-CPPFLAGS = -Wall -Wextra -Werror -std=c++98 -g
+SRC = srcs/Server.cpp srcs/Channel.cpp srcs/client/HandleClient.cpp \
+		srcs/client/HandleCommand.cpp srcs/client/HandleOpsCommand.cpp \
+		srcs/client/HandleModeCommand.cpp srcs/main.cpp
+HEADERS = includes/Server.hpp includes/Channel.hpp
 
-SRC = Server.cpp Channel.cpp main.cpp \
+OBJS = $(SRC:%.cpp=%.o)
 
-OBJS = ${SRC:.cpp=.o}
+CC = c++
+FLAGS = -Wall -Wextra -Werror -std=c++98 -g -I ./includes
 
-all: ${NAME}
+%.o: %.cpp $(HEADERS)
+	$(CC) $(FLAGS) -c $< -o $@
 
-${NAME}: ${OBJS}
-	${CXX} ${CPPFLAGS} ${OBJS} -o ${NAME}
+all: $(NAME)
+
+$(NAME): $(OBJS)
+	$(CC) $(FLAGS) $(OBJS) -o $(NAME)
 
 clean:
-	rm -f *.o
+	rm -rf $(OBJS)
 
 fclean: clean
-	rm -f ${NAME}
+	rm -rf $(NAME)
 
 re: fclean all
 
-.PHONY: all re clean fclean
+.PHONY: all clean fclean re
