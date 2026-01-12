@@ -1,5 +1,4 @@
 #include "Channel.hpp"
-#include "iostream"
 
 Channel::Channel(const std::string &name)
     : _name(name), _topic(""), _key(""), _limit(0), i(false), t(false), k(false), l(false) {

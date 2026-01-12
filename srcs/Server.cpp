@@ -22,8 +22,7 @@ void Server::initServerSocket()
 {
     _serverSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (_serverSocket < 0) {
-        std::cerr << "Erreur : échec de la création du socket\n";
-        return;
+        throw SocketCreationException();
     }
 
     int opt = 1;
@@ -31,7 +30,7 @@ void Server::initServerSocket()
                    &opt, sizeof(opt)) < 0) {
         close(_serverSocket);
         _serverSocket = -1;
-        throw std::runtime_error("Erreur : échec de setsockopt(SO_REUSEADDR)");
+        throw setsockoptException();
     }
 
     sockaddr_in serverSocketAddr;
@@ -41,18 +40,14 @@ void Server::initServerSocket()
     if (bind(_serverSocket, (sockaddr*)&serverSocketAddr, sizeof(serverSocketAddr)) < 0) {
         close (_serverSocket);
         _serverSocket = -1;
-        // std::cerr << "Erreur : échec du bind (le port est peut-être déjà pris)\n";
-        throw std::runtime_error("Erreur : échec du bind (le port est peut-être déjà pris)");
-        return ;
+        throw SocketBindException();
     }
     if (listen(_serverSocket, SOMAXCONN) < 0) {
         close (_serverSocket);
         _serverSocket = -1;
-        // std::cerr << "Erreur : échec de l'écoute\n";
-        throw std::runtime_error("Erreur : échec de l'écoute");
-        return ;
+        throw SocketListenException();
     }
-    std::cout << "Serveur initialisé sur le port " << _port << std::endl;
+    std::cout << "Server initialized on port " << _port << std::endl;
 }
 
 void Server::initFdSet()
@@ -60,7 +55,7 @@ void Server::initFdSet()
     FD_ZERO(&_masterSet);
     FD_SET(_serverSocket, &_masterSet);
     _maxFd = _serverSocket;
-    std::cout << "Serveur en attente de connexions..." << std::endl;
+    std::cout << "Server waiting for connections..." << std::endl;
 }
 
 void Server::run() {
@@ -70,8 +65,8 @@ void Server::run() {
     while (true) {
         read_fds = _masterSet;
         if (select(_maxFd + 1, &read_fds, NULL, NULL, NULL) < 0) {
-            std::cerr << "Erreur : échec de select\n";
-            continue; // break ?
+            std::cerr << "Error : Select failure\n";
+            break ;
         }
         for (int fd = 0; fd <= _maxFd; fd++) {
             if (FD_ISSET(fd, &read_fds)) {
@@ -80,7 +75,7 @@ void Server::run() {
                     socklen_t clientLen = sizeof(clientAddr);
                     int clientSocket = accept(_serverSocket, (sockaddr*)&clientAddr, &clientLen);
                     if (clientSocket < 0) {
-                        std::cerr << "Erreur : échec de l'acceptation de la connexion\n";
+                        std::cerr << "Error : failed to accept connection\n";
                         continue;
                     }
                     FD_SET(clientSocket, &_masterSet);
@@ -88,7 +83,7 @@ void Server::run() {
                         _maxFd = clientSocket;
                     }
                     _clientAuthentifieds[clientSocket] = false;
-                    std::cout << "Nouvelle connexion acceptée, socket fd: " << clientSocket << std::endl;
+                    std::cout << "New connection accepted, socket fd: " << clientSocket << std::endl;
                 } else {
                     handleClientData(fd, _masterSet, _maxFd);
                 }

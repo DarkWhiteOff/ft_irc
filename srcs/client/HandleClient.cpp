@@ -1,9 +1,8 @@
 #include "Server.hpp"
-#include <iostream>
 
 void Server::removeClient(int client_fd, fd_set &masterSet)
 {
-    std::cout << "Client déconnecté, socket fd: " << client_fd << std::endl;
+    std::cout << "Client disconnected, socket fd: " << client_fd << std::endl;
 
     std::map<std::string, Channel>::iterator ch_it  = _channels.begin();
     std::map<std::string, Channel>::iterator ch_ite = _channels.end();
@@ -31,7 +30,7 @@ void Server::handleClientData(int client_fd, fd_set &masterSet, int maxFd)
         if (bytes == 0) {
             removeClient(client_fd, masterSet);
         } else {
-            std::cerr << "Erreur : échec de la réception des données sur fd "
+            std::cerr << "Error : Failed to receive data on fd "
                       << client_fd << std::endl;
             removeClient(client_fd, masterSet);
         }
@@ -48,9 +47,9 @@ void Server::handleClientData(int client_fd, fd_set &masterSet, int maxFd)
                 std::string password = message.substr(5);
                 if (password == _password) {
                     _clientAuthentifieds[client_fd] = true;
-                    std::cout << "Client fd " << client_fd << " authentifié avec succès." << std::endl;
+                    std::cout << "Client fd " << client_fd << " authentified successfully." << std::endl;
                 } else {
-                    std::cout << "Client fd " << client_fd << " a échoué l'authentification." << std::endl;
+                    std::cout << "Client fd " << client_fd << " failed authentication." << std::endl;
                     send(client_fd, "Invalid password.\r\n", 19, 0);
                 }
             }
@@ -60,7 +59,7 @@ void Server::handleClientData(int client_fd, fd_set &masterSet, int maxFd)
                 send(client_fd,
                  "You must authenticate first using PASS command.\r\n", 52, 0);
                 std::cout << "Client fd " << client_fd
-                      << " n'est pas authentifié. Message ignoré: "
+                      << " is not authenticated. Ignored message: "
                       << message << std::endl;
             }
         }

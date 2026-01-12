@@ -1,20 +1,20 @@
 #ifndef SERVER_HPP
 #define SERVER_HPP
 
-#include <string>
-#include <vector>
-#include <map>
-#include <sys/select.h>
-
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include <iostream>
+#include <string>
 #include <unistd.h>
 #include <cstdlib>
 
-#include <cstring>
-#include <stdexcept>
+#include <vector>
+#include <map>
+
+#include <sys/select.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
+#include <exception>
 #include "Channel.hpp"
 
 class Server {
@@ -48,6 +48,27 @@ private:
     void handleTopicCommand(int client_fd, const std::string &message);
 
     void removeClient(int client_fd, fd_set &masterSet);
+
+    class SocketCreationException : public std::exception
+    {
+        public :
+            virtual const char *what(void) const throw();
+    };
+    class setsockoptException : public std::exception
+    {
+        public :
+            virtual const char *what(void) const throw();
+    };
+    class SocketBindException : public std::exception
+    {
+        public :
+            virtual const char *what(void) const throw();
+    };
+    class SocketListenException : public std::exception
+    {
+        public :
+            virtual const char *what(void) const throw();
+    };
 };
 
 #endif

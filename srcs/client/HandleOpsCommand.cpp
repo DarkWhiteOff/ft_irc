@@ -1,5 +1,4 @@
 #include "Server.hpp"
-#include <iostream>
 
 void Server::handleTopicCommand(int client_fd, const std::string& message)
 {
@@ -20,17 +19,17 @@ void Server::handleTopicCommand(int client_fd, const std::string& message)
 
     std::map<std::string, Channel>::iterator it = _channels.find(channel);
     if (it == _channels.end()) {
-        std::cout << "Le canal n'a pas été trouvé pour le nom: "
+        std::cout << "Channel was not found for the name: "
                     << channel << std::endl;
         return;
     }
     if (topic.empty()) {
-        std::cout << "Le sujet actuel du canal " << channel
-                    << " est: " << it->second.getTopic() << std::endl;
+        std::cout << "The current topic of the channel " << channel
+                    << " is: " << it->second.getTopic() << std::endl;
         return;
     }
     it->second.setTopic(topic);
-    std::cout << "Le sujet du canal " << channel << " a été défini sur: " << topic << std::endl;
+    std::cout << "The topic of the channel " << channel << " has been set to: " << topic << std::endl;
 }
 
 void Server::handleOperatorCommands(int client_fd, const std::string& message)
@@ -51,13 +50,13 @@ void Server::handleOperatorCommands(int client_fd, const std::string& message)
                     it->second.removeUser(user_it->first);
                     it->second.removeOperator(user_it->first);
                     send(user_it->first, "You have been kicked from the channel.\r\n", 41, 0);
-                    std::cout << "Client fd " << user_it->first << " a été expulsé du canal: " << channel << std::endl;
+                    std::cout << "Client fd " << user_it->first << " has been kicked from the channel: " << channel << std::endl;
                     break;
                 }
                 user_it++;
             }
         } else {
-            std::cout << "Le canal n'a pas été trouvé pour le nom: " << channel << std::endl;
+            std::cout << "The channel was not found for the name: " << channel << std::endl;
         }
     }
     else if (message.rfind("INVITE ", 0) == 0) {
@@ -77,17 +76,17 @@ void Server::handleOperatorCommands(int client_fd, const std::string& message)
                     it_channel->second.setInvitedUser(it->first, nickname);
                     std::string inviteMsg = "You have been invited to join " + channel + "\r\n";
                     send(it->first, inviteMsg.c_str(), inviteMsg.length(), 0);
-                    std::cout << "Client fd " << it->first << " a été invité au canal: " << channel << std::endl;
+                    std::cout << "Client fd " << it->first << " has been invited to the channel: " << channel << std::endl;
                     found = true;
                     break;
                 }
                 it++;
             }
         } else {
-            std::cout << "Le canal n'a pas été trouvé pour le nom: " << channel << std::endl;
+            std::cout << "The channel was not found for the name: " << channel << std::endl;
         }
         if (!found) {
-            std::cout << "Le client n'a pas été trouvé pour le pseudo: " << nickname << std::endl;
+            std::cout << "The client was not found for the nickname: " << nickname << std::endl;
         }
     }
     else if (message.rfind("MODE ", 0) == 0) {

@@ -1,5 +1,4 @@
 #include "Server.hpp"
-#include <iostream>
 
 void Server::handleModeCommand(int client_fd, const std::string& message)
 {
@@ -21,7 +20,7 @@ void Server::handleModeCommand(int client_fd, const std::string& message)
 
     std::map<std::string, Channel>::iterator it = _channels.find(channel);
     if (it == _channels.end()) {
-        std::cout << "Le canal n'a pas été trouvé pour le nom: "
+        std::cout << "Channel was not found for the name: "
                   << channel << std::endl;
         return;
     }
@@ -52,8 +51,8 @@ void Server::handleModeCommand(int client_fd, const std::string& message)
                             ++it_users;
                         }
                         if (!user_found) {
-                            std::cout << "L'utilisateur " << mode_args
-                                        << " n'est pas dans le canal " << channel
+                            std::cout << "The user " << mode_args
+                                        << " is not in the channel " << channel
                                         << std::endl;
                         }
                         break;
@@ -93,8 +92,8 @@ void Server::handleModeCommand(int client_fd, const std::string& message)
                             ++it_ops;
                         }
                         if (!op_found) {
-                            std::cout << "L'opérateur " << mode_args
-                                        << " n'est pas dans le canal " << channel
+                            std::cout << "The operator " << mode_args
+                                        << " is not in the channel " << channel
                                         << std::endl;
                         }
                         break;

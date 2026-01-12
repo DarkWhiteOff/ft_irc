@@ -1,6 +1,7 @@
 #ifndef CHANNEL_HPP
 #define CHANNEL_HPP
 
+#include <iostream>
 #include <string>
 #include <map>
 
@@ -45,10 +46,10 @@ private:
     std::map<int, std::string> _operators;
     std::map<int, std::string> _invitedUsers;
 
-    bool i; // invite only
-    bool t; // topic settable by ops only
-    bool k; // key (password) protected
-    bool l; // limited user count
+    bool i;
+    bool t;
+    bool k;
+    bool l;
 };
 
 #endif

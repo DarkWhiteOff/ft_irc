@@ -1,5 +1,4 @@
 #include "Server.hpp"
-#include <iostream>
 
 void Server::handleClientMessage(int client_fd, const std::string& message)
 {
@@ -7,7 +6,7 @@ void Server::handleClientMessage(int client_fd, const std::string& message)
         std::string nickname = message.substr(5);
         if (nickname.empty()) {
             send(client_fd, "Nickname cannot be empty.\r\n", 28, 0);
-            std::cout << "Le pseudo ne peut pas être vide pour le client fd "
+            std::cout << "Nickname cannot be empty for client fd "
                       << client_fd << std::endl;
             return ;
         }
@@ -16,25 +15,25 @@ void Server::handleClientMessage(int client_fd, const std::string& message)
         while (it != ite) {
             if (it->second == nickname && it->first != client_fd) {
                 send(client_fd, "Nickname is already in use.\r\n", 30, 0);
-                std::cout << "Le pseudo " << nickname << " est déjà utilisé." << std::endl;
+                std::cout << "Nickname " << nickname << " is already used." << std::endl;
                 return ;
             }
             it++;
         }
         _clientNicknames[client_fd] = nickname;
-        std::cout << "Client fd " << client_fd << " a défini le pseudo: " << nickname << std::endl;
+        std::cout << "Client fd " << client_fd << " defined the nickname: " << nickname << std::endl;
     }
     else if (message.rfind("USER ", 0) == 0)  {
         std::string username = message.substr(5);
         if (username.empty()) {
             send(client_fd, "Username cannot be empty.\r\n", 28, 0);
-            std::cout << "Le nom d'utilisateur ne peut pas être vide pour le client fd "
+            std::cout << "The username cannot be empty for client fd "
                       << client_fd << std::endl;
             return ;
         }
         if (_clientUsernames.find(client_fd) != _clientUsernames.end()) {
             send(client_fd, "Username is already set.\r\n", 27, 0);
-            std::cout << "Le nom d'utilisateur pour le client fd " << client_fd << " est déjà défini." << std::endl;
+            std::cout << "The username for the client fd " << client_fd << " is already set." << std::endl;
             return ;
         }
         std::map<int, std::string>::iterator it = _clientUsernames.begin();
@@ -42,13 +41,13 @@ void Server::handleClientMessage(int client_fd, const std::string& message)
         while (it != ite) {
             if (it->second == username && it->first != client_fd) {
                 send(client_fd, "Username is already in use.\r\n", 30, 0);
-                std::cout << "Le nom d'utilisateur " << username << " est déjà utilisé." << std::endl;
+                std::cout << "The username " << username << " is already used." << std::endl;
                 return ;
             }
             it++;
         }
         _clientUsernames[client_fd] = username;
-        std::cout << "Client fd " << client_fd << " a défini le nom d'utilisateur: " << username << std::endl;
+        std::cout << "Client fd " << client_fd << " defined the username: " << username << std::endl;
     }
     else if (message.rfind("JOIN ", 0) == 0) {
         std::string params  = message.substr(5);
@@ -63,14 +62,14 @@ void Server::handleClientMessage(int client_fd, const std::string& message)
         }
         if (channel.empty() || channel[0] != '#') {
             send(client_fd, "Invalid channel name. Channel names must start with '#'.\r\n", 63, 0);
-            std::cout << "Nom de canal invalide reçu du client fd "
+            std::cout << "Invalid channel name received from client fd "
                       << client_fd << ": " << channel << std::endl;
             return ;
         }
 
         if (_clientNicknames.find(client_fd) == _clientNicknames.end()) {
             send(client_fd, "You must at least set a nickname before joining a channel.\r\n", 66, 0);
-            std::cout << "Client fd " << client_fd << " doit définir un pseudo avant de rejoindre un canal." << std::endl;
+            std::cout << "Client fd " << client_fd << " must set a nickname before joining a channel." << std::endl;
             return ;
         }
 
@@ -91,21 +90,21 @@ void Server::handleClientMessage(int client_fd, const std::string& message)
             if (it->second.getL()) {
                 if (static_cast<int>(it->second.getUsers().size()) >= it->second.getLimit()) {
                     send(client_fd, "Channel is full.\r\n", 18, 0);
-                    std::cout << "Le canal " << channel << " est plein." << std::endl;
+                    std::cout << "The channel " << channel << " is full." << std::endl;
                     return ;
                 }
             }
             if (it->second.getK() && !is_invited) {
                 if (key != it->second.getKey()) {
                     send(client_fd, "Incorrect channel key.\r\n", 25, 0);
-                    std::cout << "Clé incorrecte pour le canal " << channel << std::endl;
+                    std::cout << "Incorrect key for the channel " << channel << std::endl;
                     return ;
                 }
             }
             if (it->second.getI() && !is_invited) {
                 send(client_fd, "You are not invited to this channel.\r\n", 38, 0);
                 std::cout << "Client fd " << client_fd
-                        << " n'est pas invité au canal: "
+                        << " is not invited to the channel: "
                         << channel << std::endl;
                 return;
             }
@@ -119,20 +118,20 @@ void Server::handleClientMessage(int client_fd, const std::string& message)
             it->second.setUser(client_fd, _clientNicknames[client_fd]);
             it->second.setOperator(client_fd, _clientNicknames[client_fd]);
         }
-        std::cout << "Client fd " << client_fd << " a rejoint le canal: " << channel << std::endl;
+        std::cout << "Client fd " << client_fd << " joined the channel: " << channel << std::endl;
     }
     else if (message.rfind("PRIVMSG ", 0) == 0) {
         std::string params = message.substr(8);
 
         if (params.find(' ') == std::string::npos) {
-            std::cout << "PRIVMSG invalide de fd"
+            std::cout << "PRIVMSG invalid from fd"
                     << client_fd << ": " << params << std::endl;
             return;
         }
         std::string target = params.substr(0, params.find(' '));
         std::string msg    = params.substr(params.find(' ') + 1);
         if (target.empty() || msg.empty()) {
-            std::cout << "PRIVMSG invalide de fd "
+            std::cout << "PRIVMSG invalid from fd "
                   << client_fd << ": " << params << std::endl;
             return;
         }
@@ -141,7 +140,7 @@ void Server::handleClientMessage(int client_fd, const std::string& message)
         if (target[0] == '#') {
             std::map<std::string, Channel>::iterator it = _channels.find(target);
             if (it == _channels.end()) {
-                std::cout << "Le canal n'a pas été trouvé pour le nom: "
+                std::cout << "The channel was not found for the name: "
                         << target << std::endl;
                 return;
             }
@@ -150,7 +149,7 @@ void Server::handleClientMessage(int client_fd, const std::string& message)
             while (user_it != user_ite) {
                 if (user_it->first != client_fd) {
                     send(user_it->first, msg.c_str(), msg.length(), 0);
-                    std::cout << "Envoi du message au client fd " << user_it->first << ": " << msg << std::endl;
+                    std::cout << "Sending message to client fd " << user_it->first << ": " << msg << std::endl;
                 }
                 user_it++;
             }
@@ -162,13 +161,13 @@ void Server::handleClientMessage(int client_fd, const std::string& message)
                 if (it->second == target) {
                     found = true;
                     send(it->first, msg.c_str(), msg.length(), 0);
-                    std::cout << "Envoi du message au client fd " << it->first << ": " << msg << std::endl;
+                    std::cout << "Sending message to client fd " << it->first << ": " << msg << std::endl;
                     break;
                 }
                 it++;
             }
             if (!found)
-                std::cout << "Le client n'a pas été trouvé pour le pseudo: " << target << std::endl;
+                std::cout << "The client was not found for the nickname: " << target << std::endl;
         }
     }
     else if (message.rfind("KICK ", 0) == 0 ||
@@ -187,7 +186,7 @@ void Server::handleClientMessage(int client_fd, const std::string& message)
 
         std::map<std::string, Channel>::iterator it = _channels.find(channel);
         if (it == _channels.end()) {
-            std::cout << "Le canal n'a pas été trouvé pour le nom: "
+            std::cout << "The channel was not found for the name: "
                       << channel << std::endl;
             return ;
         }
@@ -197,8 +196,8 @@ void Server::handleClientMessage(int client_fd, const std::string& message)
                 handleTopicCommand(client_fd, message);
             } else {
                 std::cout << "Client fd " << client_fd
-                        << " n'est pas opérateur et le canal "
-                        << channel << " est en mode +t (TOPIC restreint)."
+                        << " is not operator and the channel "
+                        << channel << " is in mode +t (TOPIC restricted)."
                         << std::endl;
             }
         } else {
@@ -206,14 +205,14 @@ void Server::handleClientMessage(int client_fd, const std::string& message)
                 handleOperatorCommands(client_fd, message);
             } else {
                 std::cout << "Client fd " << client_fd
-                    << " n'est pas opérateur sur le canal "
-                    << channel << " pour la commande: "
+                    << " is not operator on the channel "
+                    << channel << " for the command: "
                     << message << std::endl;
             }
         }
     }
     else {
-        std::cout << "Commande inconnue reçue du client fd "
+        std::cout << "Unknown command received from client fd "
                   << client_fd << ": " << message << std::endl;
     }
 }
