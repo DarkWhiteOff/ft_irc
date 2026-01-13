@@ -52,8 +52,6 @@ private:
 
     void removeClient(int client_fd, fd_set &masterSet);
     void tryRegisterClient(int client_fd);
-    void sendReply(int client_fd, const std::string &code,
-                   const std::string &nickname, const std::string &message);
 
     class SocketCreationException : public std::exception
     {

@@ -41,14 +41,22 @@ void Server::tryRegisterClient(int client_fd)
         return;
 
     const std::string &nick = itNick->second;
+    const std::string &user = itUser->second;
 
     _clientRegistered[client_fd] = true;
 
-    // Envoi des replies minimales attendues par un client IRC (001-004) //
-    sendReply(client_fd, "001", nick, "Welcome to the ft_irc server!");
-    sendReply(client_fd, "002", nick, "Your host is " SERVER_NAME ", running version 1.0");
-    sendReply(client_fd, "003", nick, "This server was created just now");
-    sendReply(client_fd, "004", nick, SERVER_NAME " 1.0 oi oi");
+    std::string numeric001 = ":" SERVER_NAME " 001 " + nick + " :Welcome to the ft_irc Network, " + nick + "!\r\n";
+    send(client_fd, numeric001.c_str(), numeric001.size(), 0);
+    
+    std::string numeric002 = ":" SERVER_NAME " 002 " + nick + " :Your host is " SERVER_NAME ", running version 1.0\r\n";
+    send(client_fd, numeric002.c_str(), numeric002.size(), 0);
+    
+    std::string numeric003 = ":" SERVER_NAME " 003 " + nick + " :This server was created on April 21, 2025\r\n";
+    send(client_fd, numeric003.c_str(), numeric003.size(), 0);
+    
+    std::string numeric004 = ":" SERVER_NAME " 004 " + nick + " :" SERVER_NAME " 1.0 o o\r\n";
+    send(client_fd, numeric004.c_str(), numeric004.size(), 0);
+    std::cout << "Client " << nick << " (" << user << ") has completed registration" << std::endl;
 }
 
 void Server::handleClientData(int client_fd, fd_set &masterSet, int maxFd)
@@ -83,14 +91,15 @@ void Server::handleClientData(int client_fd, fd_set &masterSet, int maxFd)
                     send(client_fd, "Invalid password.\r\n", 19, 0);
                 }
             }
+            else if (message.rfind("CAP ", 0) == 0) {
+                std::cout << "Client fd " << client_fd << " sent CAP command: " << message << std::endl;
+            }
             else if (_clientAuthentifieds[client_fd])
             {
                 handleClientMessage(client_fd, message);
                 tryRegisterClient(client_fd);
             }
             else {
-                send(client_fd,
-                 "You must authenticate first using PASS command.\r\n", 52, 0);
                 std::cout << "Client fd " << client_fd
                       << " is not authenticated. Ignored message: "
                       << message << std::endl;

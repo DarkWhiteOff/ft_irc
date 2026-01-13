@@ -3,7 +3,7 @@ NAME = ircserv
 SRC = srcs/Server.cpp srcs/Channel.cpp srcs/client/HandleClient.cpp \
 		srcs/client/HandleCommand.cpp srcs/client/HandleOpsCommand.cpp \
 		srcs/client/HandleModeCommand.cpp \
-		srcs/utils/exception.cpp srcs/utils/utils.cpp srcs/main.cpp
+		srcs/utils/exception.cpp srcs/main.cpp
 HEADERS = includes/Server.hpp includes/Channel.hpp
 
 OBJS = $(SRC:%.cpp=%.o)
