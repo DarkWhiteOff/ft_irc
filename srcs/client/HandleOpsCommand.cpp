@@ -48,7 +48,7 @@ void Server::handleOperatorCommands(int client_fd, const std::string& message)
             while (user_it != user_ite) {
                 if (user_it->second == nickname) {
                     it->second.removeUser(user_it->first);
-                    it->second.removeOperator(user_it->first);
+                    it->second.removeOperator(user_it->first); // leak
                     send(user_it->first, "You have been kicked from the channel.\r\n", 41, 0);
                     std::cout << "Client fd " << user_it->first << " has been kicked from the channel: " << channel << std::endl;
                     break;

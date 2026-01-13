@@ -1,8 +1,14 @@
 #include <iostream>
 #include "Server.hpp"
 
+void handleSigInt(int)
+{
+    g_running = 0;
+}
+
 int main(int argc, char **argv)
 {
+    std::signal(SIGINT, handleSigInt);
     if (argc != 3) {
         std::cerr << "Usage: ./ircserv <port> <password>" << std::endl;
         return (1);

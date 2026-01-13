@@ -19,6 +19,9 @@
 
 #define SERVER_NAME "ft_irc"
 
+#include <csignal>
+static volatile sig_atomic_t g_running = 1;
+
 class Server {
 public:
     Server(int port, const std::string &password);

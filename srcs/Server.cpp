@@ -62,9 +62,11 @@ void Server::run() {
     std::cout << "Server running on port " << _port
               << " with password '" << _password << "'" << std::endl;
     fd_set read_fds;
-    while (true) {
+    while (g_running) {
         read_fds = _masterSet;
         if (select(_maxFd + 1, &read_fds, NULL, NULL, NULL) < 0) {
+            if (!g_running)
+                break ;
             std::cerr << "Error : Select failure\n";
             break ;
         }
