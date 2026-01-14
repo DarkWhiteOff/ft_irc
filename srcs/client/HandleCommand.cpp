@@ -111,7 +111,7 @@ void Server::handleClientMessage(int client_fd, const std::string& message)
             if (is_invited && invited_fd != -1) {
                 it->second.removeInvitedUser(client_fd);
             }
-            it->second.setUser(client_fd, _clientNicknames[client_fd]);  
+            it->second.setUser(client_fd, _clientNicknames[client_fd]);
         } else {
             _channels.insert(std::make_pair(channel, Channel(channel)));
             it = _channels.find(channel);

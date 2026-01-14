@@ -47,10 +47,12 @@ void Server::handleOperatorCommands(int client_fd, const std::string& message)
             std::map<int, std::string>::const_iterator user_ite = it->second.getUsers().end();
             while (user_it != user_ite) {
                 if (user_it->second == nickname) {
-                    it->second.removeUser(user_it->first);
-                    it->second.removeOperator(user_it->first); // leak
-                    send(user_it->first, "You have been kicked from the channel.\r\n", 41, 0);
-                    std::cout << "Client fd " << user_it->first << " has been kicked from the channel: " << channel << std::endl;
+                    int target_fd = user_it->first;
+                    it->second.removeUser(target_fd);
+                    if (it->second.getOperators().find(target_fd) != it->second.getOperators().end())
+                        it->second.removeOperator(target_fd);
+                    send(target_fd, "You have been kicked from the channel.\r\n", 41, 0);
+                    std::cout << "Client fd " << target_fd << " has been kicked from the channel: " << channel << std::endl;
                     break;
                 }
                 user_it++;

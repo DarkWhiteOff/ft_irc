@@ -5,11 +5,17 @@ void Server::removeClient(int client_fd, fd_set &masterSet)
     std::cout << "Client disconnected, socket fd: " << client_fd << std::endl;
 
     std::map<std::string, Channel>::iterator ch_it  = _channels.begin();
-    std::map<std::string, Channel>::iterator ch_ite = _channels.end();
-    while (ch_it != ch_ite) {
+    while (ch_it != _channels.end()) {
         ch_it->second.removeUser(client_fd);
         ch_it->second.removeOperator(client_fd);
-        ++ch_it;
+
+        if (ch_it->second.getUsers().empty()) {
+            std::cout << "Channel " << ch_it->first
+                      << " deleted (no more users)" << std::endl;
+            _channels.erase(ch_it++);
+        }
+        else
+            ch_it++;
     }
 
     _clientBuffers.erase(client_fd);
