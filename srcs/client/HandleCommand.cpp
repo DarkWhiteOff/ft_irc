@@ -36,16 +36,6 @@ void Server::handleClientMessage(int client_fd, const std::string& message)
             std::cout << "The username for the client fd " << client_fd << " is already set." << std::endl;
             return ;
         }
-        std::map<int, std::string>::iterator it = _clientUsernames.begin();
-        std::map<int, std::string>::iterator ite = _clientUsernames.end();
-        while (it != ite) {
-            if (it->second == username && it->first != client_fd) {
-                send(client_fd, "Username is already in use.\r\n", 30, 0);
-                std::cout << "The username " << username << " is already used." << std::endl;
-                return ;
-            }
-            it++;
-        }
         _clientUsernames[client_fd] = username;
         std::cout << "Client fd " << client_fd << " defined the username: " << username << std::endl;
     }
