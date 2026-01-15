@@ -56,6 +56,8 @@ private:
     void removeClient(int client_fd, fd_set &masterSet);
     void tryRegisterClient(int client_fd);
 
+    void IrssiJoin(int client_fd, const std::string &channel);
+
     class SocketCreationException : public std::exception
     {
         public :

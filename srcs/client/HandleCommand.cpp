@@ -108,6 +108,7 @@ void Server::handleClientMessage(int client_fd, const std::string& message)
             it->second.setUser(client_fd, _clientNicknames[client_fd]);
             it->second.setOperator(client_fd, _clientNicknames[client_fd]);
         }
+        IrssiJoin(client_fd, channel);
         std::cout << "Client fd " << client_fd << " joined the channel: " << channel << std::endl;
     }
     else if (message.rfind("PRIVMSG ", 0) == 0) {
