@@ -101,7 +101,7 @@ void Server::sendNamesReply(int client_fd, const std::string &channel, Channel &
     send(client_fd, endNames.c_str(), endNames.length(), 0);
 }
 
-void Server::IrssiJoin(int client_fd, const std::string& channel) 
+void Server::sendJoinReplies(int client_fd, const std::string& channel) 
 {
     std::map<std::string, Channel>::iterator it = _channels.find(channel);
 
@@ -151,7 +151,7 @@ void Server::sendChannelPrivmsg(int client_fd, const std::string &target, const 
     }
 }
 
-void Server::sendPrivatePrivmsg(int client_fd, const std::string &target, const std::string &text)
+void Server::sendUserPrivmsg(int client_fd, const std::string &target, const std::string &text)
 {
     int target_fd = -1;
     std::map<int, std::string>::iterator it = _clientNicknames.begin();

@@ -48,22 +48,25 @@ private:
     void initFdSet();
 
     void handleClientData(int client_fd, fd_set &masterSet, int maxFd);
-    void handleClientMessage(int client_fd, const std::string &message);
-    void handleOperatorCommands(int client_fd, const std::string &message);
-    void handleModeCommand(int client_fd, const std::string &message);
-    void handleTopicCommand(int client_fd, const std::string &message);
-    void handlePartCommand(int client_fd, const std::string &message);
-
     void removeClient(int client_fd, fd_set &masterSet);
     void tryRegisterClient(int client_fd);
 
+    void handleClientCommand(int client_fd, const std::string &message);
+    void handleOperatorCommands(int client_fd, const std::string &message);
+    void handleModeCommand(int client_fd, const std::string &message);
+    void handleTopicCommand(int client_fd, const std::string &message);
+    
+    void handleJoinCommand(int client_fd, const std::string &message);
+    void handlePartCommand(int client_fd, const std::string &message);
+
+
     std::string getClientNickOrDefault(int client_fd);
     std::string makePrefix(int client_fd);
-    void IrssiJoin(int client_fd, const std::string &channel); 
+    void sendJoinReplies(int client_fd, const std::string &channel); 
     void sendNamesReply(int client_fd, const std::string &channel, Channel &chan);
     void sendTopicReply(int client_fd, const std::string &channel, Channel &chan);
     void sendChannelPrivmsg(int client_fd, const std::string &target, const std::string &text);
-    void sendPrivatePrivmsg(int client_fd, const std::string &target, const std::string &text);
+    void sendUserPrivmsg(int client_fd, const std::string &target, const std::string &text);
     void updateNickInChannels(int client_fd, const std::string &oldNick, const std::string &newNick);
     void broadcastNickChange(int client_fd, const std::string &oldNick, const std::string &newNick);
 

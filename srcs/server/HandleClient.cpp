@@ -116,7 +116,7 @@ void Server::handleClientData(int client_fd, fd_set &masterSet, int maxFd)
             }
             else if (_clientAuthentifieds[client_fd])
             {
-                handleClientMessage(client_fd, message);
+                handleClientCommand(client_fd, message);
                 tryRegisterClient(client_fd);
             }
             else {
