@@ -1,16 +1,61 @@
 #include "Server.hpp"
 
+struct UserInput Server::parseCmd(const std::string &msg)
+{
+    UserInput input;
+    std::istringstream iss(msg);
+    std::string token;
+
+    bool cmd_set     = false;
+    bool trailing_set = false;
+
+    while (iss >> token)
+    {
+        if (!cmd_set)
+        {
+            input.cmd = token;
+            cmd_set = true;
+        }
+        else if (!trailing_set && !token.empty() && token[0] == ':')
+        {
+            input.trailing = token.substr(1);
+
+            std::string rest;
+            std::getline(iss, rest);
+            if (!rest.empty() && rest[0] == ' ')
+                rest.erase(0, 1);
+            if (!rest.empty())
+            {
+                if (!input.trailing.empty())
+                    input.trailing += " ";
+                input.trailing += rest;
+            }
+
+            trailing_set = true;
+            break;
+        }
+        else
+        {
+            input.params.push_back(token);
+        }
+    }
+
+    return input;
+}
+
 void Server::handleClientCommand(int client_fd, const std::string& message)
 {
-    if (message.rfind("NICK ", 0) == 0) {
-        std::string nickname = message.substr(5);
-        if (nickname.empty()) {
+    UserInput input = parseCmd(message);
+
+    if (input.cmd == "NICK") {
+        if (input.params.empty()) {
             std::string err = ":ft_irc 431 * :No nickname given\r\n";
             send(client_fd, err.c_str(), err.size(), 0);
             std::cout << "Nickname cannot be empty for client fd "
                       << client_fd << std::endl;
             return ;
         }
+        std::string nickname = input.params[0];
         std::map<int, std::string>::iterator it = _clientNicknames.begin();
         std::map<int, std::string>::iterator ite = _clientNicknames.end();
         while (it != ite) {
@@ -32,9 +77,8 @@ void Server::handleClientCommand(int client_fd, const std::string& message)
         broadcastNickChange(client_fd, oldNickname, nickname);
         std::cout << "Client fd " << client_fd << " defined the nickname: " << nickname << std::endl;
     }
-    else if (message.rfind("USER ", 0) == 0)  {
-        std::string username = message.substr(5);
-        if (username.empty()) {
+    else if (input.cmd == "USER")  {
+        if (input.params.empty()) {
             std::string nick = getClientNickOrDefault(client_fd);
             std::string err = ":ft_irc 461 " + nick + " USER :Not enough parameters\r\n";
             send(client_fd, err.c_str(), err.size(), 0);
@@ -42,6 +86,7 @@ void Server::handleClientCommand(int client_fd, const std::string& message)
                       << client_fd << std::endl;
             return ;
         }
+        std::string username = input.params[0];
         if (_clientUsernames.find(client_fd) != _clientUsernames.end()) {
             std::string err = ":ft_irc 462 * :You may not reregister\r\n";
             send(client_fd, err.c_str(), err.size(), 0);
@@ -51,52 +96,73 @@ void Server::handleClientCommand(int client_fd, const std::string& message)
         _clientUsernames[client_fd] = username;
         std::cout << "Client fd " << client_fd << " defined the username: " << username << std::endl;
     }
-    else if (message.rfind("JOIN ", 0) == 0) {
-        handleJoinCommand(client_fd, message);
+    else if (input.cmd == "JOIN") {
+        handleJoinCommand(client_fd, input);
     }
-    else if (message.rfind("PRIVMSG ", 0) == 0) {
-        std::string params = message.substr(8);
-        if (params.find(" :") == std::string::npos) {
+    else if (input.cmd == "PRIVMSG") { // à voir
+        if (input.params.empty()) {
             std::string err = ":ft_irc 412 :No text to send\r\n";
             send(client_fd, err.c_str(), err.size(), 0);
             std::cout << "PRIVMSG invalid from fd"
-                    << client_fd << ": " << params << std::endl;
+                    << client_fd << std::endl;
             return;
         }
-        std::string target = params.substr(0, params.find(" :"));
-        std::string msg   = params.substr(params.find(" :") + 2);
-        if (target.empty() || msg.empty()) {
-            std::string err = ":ft_irc 412 :No text to send\r\n";
-            send(client_fd, err.c_str(), err.size(), 0);
-            std::cout << "PRIVMSG invalid from fd "
-                  << client_fd << ": " << params << std::endl;
-            return;
+        std::string target = input.params[0];
+        std::string msg;
+        if (!input.trailing.empty())
+            msg = input.trailing;
+        else
+        {
+            if (input.params.size() < 2)
+            {
+                std::string err = ":ft_irc 412 :No text to send\r\n";
+                send(client_fd, err.c_str(), err.size(), 0);
+                std::cout << "PRIVMSG invalid from fd "
+                          << client_fd << std::endl;
+                return;
+            }
+            for (size_t i = 1; i < input.params.size(); ++i)
+            {
+                if (!msg.empty())
+                    msg += " ";
+                msg += input.params[i];
+            }
         }
         if (target[0] == '#')
             sendChannelPrivmsg(client_fd, target, msg);
         else
             sendUserPrivmsg(client_fd, target, msg);
     }
-    else if (message.rfind("PART ", 0) == 0) {
-        handlePartCommand(client_fd, message);
+    else if (input.cmd == "PART") {
+        handlePartCommand(client_fd, input);
     }
-    else if (message.rfind("PING", 0) == 0) {
-        std::string params = message.substr(4);
-        if (!params.empty() && params[0] == ' ')
-            params.erase(0, 1);
+    else if (input.cmd == "PING") {
+        std::string token;
+        if (!input.trailing.empty())
+            token = input.trailing;
+        else if (!input.params.empty())
+        {
+            token = input.params[0];
+            for (size_t i = 1; i < input.params.size(); ++i)
+            {
+                token += " ";
+                token += input.params[i];
+            }
+        }
+
         std::string reply = "PONG";
-        if (!params.empty())
-            reply += " :" + params;
+        if (!token.empty())
+            reply += " :" + token;
         reply += "\r\n";
-        send(client_fd, reply.c_str(), reply.length(), 0);
+        send(client_fd, reply.c_str(), reply.size(), 0);
     }
-    else if (message.rfind("WHO ", 0) == 0 || message.rfind("WHOIS ", 0) == 0) {
+    else if (input.cmd == "WHO" || input.cmd == "WHOIS") { // à gérer
         return;
     }
-    else if (message.rfind("KICK ", 0) == 0 ||
-         message.rfind("INVITE ", 0) == 0 ||
-         message.rfind("MODE ", 0) == 0 ||
-         message.rfind("TOPIC ", 0) == 0) {
+    else if (input.cmd == "KICK" ||
+             input.cmd == "INVITE" ||
+             input.cmd == "MODE" ||
+             input.cmd == "TOPIC") {
         std::string params = message.substr(message.find(' ') + 1);
         std::string channel;
 

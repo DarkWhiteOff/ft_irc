@@ -1,17 +1,19 @@
 #include "Server.hpp"
 
-void Server::handleJoinCommand(int client_fd, const std::string &message)
+void Server::handleJoinCommand(int client_fd, const UserInput &input)
 {
-    std::string params  = message.substr(5);
-    std::string channel;
-    std::string key;
-
-    if (params.find(' ') == std::string::npos) {
-        channel = params;
-    } else {
-        channel = params.substr(0, params.find(' '));
-        key     = params.substr(params.find(' ') + 1);
+    if (input.params.empty())
+    {
+        std::string nick = getClientNickOrDefault(client_fd);
+        std::string err  = ":ft_irc 461 " + nick + " JOIN :Not enough parameters\r\n";
+        send(client_fd, err.c_str(), err.size(), 0);
+        return;
     }
+
+    std::string channel = input.params[0];
+    std::string key;
+    if (input.params.size() >= 2)
+        key = input.params[1];
 
     if (channel.empty() || channel[0] != '#') {
         std::string nick = getClientNickOrDefault(client_fd);
@@ -101,36 +103,31 @@ void Server::handleJoinCommand(int client_fd, const std::string &message)
               << " joined the channel: " << channel << std::endl;
 }
 
-void Server::handlePartCommand(int client_fd, const std::string &message)
+void Server::handlePartCommand(int client_fd, const UserInput &input)
 {
-    size_t firstSpace = message.find(' ');
-    if (firstSpace == std::string::npos)
+    if (input.params.empty())
     {
         std::string nick = getClientNickOrDefault(client_fd);
-        std::string err = ":ft_irc 461 " + nick + " PART :Not enough parameters\r\n";
+        std::string err  = ":ft_irc 461 " + nick + " PART :Not enough parameters\r\n";
         send(client_fd, err.c_str(), err.size(), 0);
         return;
     }
-    std::string params = message.substr(5);
-    std::string channel;
-    std::string reason = "Leaving";
-    if (params.find(" :") != std::string::npos)
+
+    std::string channel = input.params[0];
+    std::string reason  = "Leaving";
+    if (!input.trailing.empty())
     {
-        channel = params.substr(0, params.find(" :"));
-        reason = params.substr(params.find(" :") + 2);
+        reason = input.trailing;
     }
-    else
-        channel = params;
-    while (!channel.empty() && channel[0] == ' ')
-        channel.erase(0, 1);
-    while (!channel.empty() && channel[channel.size() - 1] == ' ')
-        channel.erase(channel.size() - 1);
-    if (channel.empty())
+    else if (input.params.size() > 1)
     {
-        std::string nick = getClientNickOrDefault(client_fd);
-        std::string err = ":ft_irc 461 " + nick + " PART :Not enough parameters\r\n";
-        send(client_fd, err.c_str(), err.size(), 0);
-        return;
+        reason.clear();
+        for (size_t i = 1; i < input.params.size(); ++i)
+        {
+            if (!reason.empty())
+                reason += " ";
+            reason += input.params[i];
+        }
     }
 
     std::map<std::string, Channel>::iterator it = _channels.find(channel);
