@@ -1,9 +1,9 @@
 NAME = ircserv
 
-SRC = srcs/Server.cpp srcs/Channel.cpp srcs/client/HandleClient.test.cpp \
-		srcs/client/HandleCommand.test.cpp srcs/client/HandleOpsCommand.test.cpp \
+SRC = srcs/Server.cpp srcs/Channel.cpp srcs/client/HandleClient.cpp \
+		srcs/client/HandleCommand.cpp srcs/client/HandleOpsCommand.cpp \
 		srcs/client/HandleModeCommand.cpp \
-		srcs/utils/exception.cpp srcs/irssi/HandleIrssiCodes.test.cpp srcs/main.cpp
+		srcs/utils/exception.cpp srcs/irssi/HandleIrssiCodes.cpp srcs/main.cpp
 HEADERS = includes/Server.hpp includes/Channel.hpp
 
 OBJS = $(SRC:%.cpp=%.o)

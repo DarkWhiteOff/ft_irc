@@ -1,4 +1,4 @@
-#include "Server.hpp" //
+#include "Server.hpp"
 
 void Server::handleTopicCommand(int client_fd, const std::string& message)
 {
@@ -73,9 +73,9 @@ void Server::handleOperatorCommands(int client_fd, const std::string& message)
         std::string channel  = params.substr(0, params.find(' '));
         std::string nickname = params.substr(params.find(' ') + 1);
 
-        size_t spacePos = nickname.find(' '); //
-        if (spacePos != std::string::npos) //
-            nickname = nickname.substr(0, spacePos); //
+        size_t spacePos = nickname.find(' ');
+        if (spacePos != std::string::npos)
+            nickname = nickname.substr(0, spacePos);
 
         std::map<std::string, Channel>::iterator it = _channels.find(channel);
         if (it != _channels.end()) {
@@ -84,28 +84,17 @@ void Server::handleOperatorCommands(int client_fd, const std::string& message)
             while (user_it != user_ite) {
                 if (user_it->second == nickname) {
                     int target_fd = user_it->first;
-
-                    // nick de l’opérateur qui kick //
-                    std::string opNick = (_clientNicknames.find(client_fd) != _clientNicknames.end()) //
-                                         ? _clientNicknames[client_fd] //
-                                         : "*"; //
-
-                    // message KICK au format IRC standard //
-                    std::string kickMsg = ":" + opNick + "!" SERVER_NAME " KICK " //
-                                          + channel + " " + nickname + " :Kicked\r\n"; //
-
-                    // broadcast à tous les users du channel (opérateur, cible, autres) //
-                    std::map<int, std::string>::const_iterator b_it = it->second.getUsers().begin(); //
-                    std::map<int, std::string>::const_iterator b_ite = it->second.getUsers().end(); //
-                    while (b_it != b_ite) { //
-                        send(b_it->first, kickMsg.c_str(), kickMsg.size(), 0); //
-                        ++b_it; //
-                    } //
-
+                    std::string opNick = _clientNicknames[client_fd];
+                    std::string kickMsg = ":" + opNick + "!ft_irc KICK "
+                                          + channel + " " + nickname + " :Kicked\r\n";
+                    std::map<int, std::string>::const_iterator b_it = it->second.getUsers().begin();
+                    std::map<int, std::string>::const_iterator b_ite = it->second.getUsers().end();
+                    while (b_it != b_ite) {
+                        send(b_it->first, kickMsg.c_str(), kickMsg.size(), 0);
+                        b_it++;
+                    }
                     it->second.removeUser(target_fd);
-                    if (it->second.getOperators().find(target_fd) != it->second.getOperators().end())
-                        it->second.removeOperator(target_fd);
-                    // send(target_fd, "You have been kicked from the channel.\r\n", 41, 0);
+                    it->second.removeOperator(target_fd);
                     std::cout << "Client fd " << target_fd << " has been kicked from the channel: " << channel << std::endl;
                     break;
                 }
@@ -167,79 +156,3 @@ void Server::handleOperatorCommands(int client_fd, const std::string& message)
         handleModeCommand(client_fd, message);
     }
 }
-
-// PART //
-void Server::handlePartCommand(int client_fd, const std::string &message) //
-{ //
-    size_t pos = message.find("PART") + 5; //
-    std::string params = message.substr(pos); //
-
-    if (params.find("\r") != std::string::npos) //
-        params.erase(params.find("\r")); //
-    if (params.find("\n") != std::string::npos) //
-        params.erase(params.find("\n")); //
-
-    std::string channel; //
-    std::string reason = "Leaving"; //
-
-    size_t colonPos = params.find(" :"); //
-    if (colonPos != std::string::npos) //
-    { //
-        channel = params.substr(0, colonPos); //
-        reason = params.substr(colonPos + 2); //
-    } //
-    else //
-    { //
-        channel = params; //
-    } //
-
-    while (!channel.empty() && channel[0] == ' ') //
-        channel.erase(0, 1); //
-
-    if (channel.empty()) //
-    { //
-        std::string nick = getClientNickOrDefault(client_fd); //
-        std::string err = ":" SERVER_NAME " 461 " + nick + " PART :Not enough parameters\r\n"; //
-        send(client_fd, err.c_str(), err.size(), 0); //
-        return; //
-    } //
-
-    std::map<std::string, Channel>::iterator it = _channels.find(channel); //
-    if (it == _channels.end()) //
-    { //
-        std::string nick = getClientNickOrDefault(client_fd); //
-        std::string err = ":" SERVER_NAME " 403 " + nick + " " + channel + " :No such channel\r\n"; //
-        send(client_fd, err.c_str(), err.size(), 0); //
-        return; //
-    } //
-
-    const std::map<int, std::string> &users = it->second.getUsers(); //
-    if (users.find(client_fd) == users.end()) //
-    { //
-        std::string nick = getClientNickOrDefault(client_fd); //
-        std::string err = ":" SERVER_NAME " 442 " + nick + " " + channel + " :You're not on that channel\r\n"; //
-        send(client_fd, err.c_str(), err.size(), 0); //
-        return; //
-    } //
-
-    std::string partMsg = makePrefix(client_fd) + " PART " + channel + " :" + reason + "\r\n"; //
-
-    std::map<int, std::string>::const_iterator uit = users.begin(); //
-    std::map<int, std::string>::const_iterator uite = users.end(); //
-    while (uit != uite) //
-    { //
-        send(uit->first, partMsg.c_str(), partMsg.size(), 0); //
-        ++uit; //
-    } //
-
-    it->second.removeUser(client_fd); //
-    it->second.removeOperator(client_fd); //
-
-    if (it->second.getUsers().empty()) //
-    { //
-        std::cout << "Channel " << channel << " deleted (no more users)" << std::endl; //
-        _channels.erase(it); //
-    } //
-
-    std::cout << "Client fd " << client_fd << " left channel: " << channel << " with message: " << reason << std::endl; //
-} //

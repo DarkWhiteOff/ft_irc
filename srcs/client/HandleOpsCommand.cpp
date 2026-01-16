@@ -2,33 +2,53 @@
 
 void Server::handleTopicCommand(int client_fd, const std::string& message)
 {
-    (void) client_fd;
     if (message.rfind("TOPIC ", 0) != 0)
         return;
+
     std::string params = message.substr(6);
     std::string channel;
     std::string topic;
-
-    std::string::size_type spacePos = params.find(' ');
-    if (spacePos == std::string::npos) {
+    if (params.find(" :") == std::string::npos) {
         channel = params;
     } else {
-        channel = params.substr(0, spacePos);
-        topic   = params.substr(spacePos + 1);
+        channel = params.substr(0, params.find(" :"));
+        topic   = params.substr(params.find(" :") + 2);
     }
+    while (!channel.empty() && channel[0] == ' ')
+        channel.erase(0, 1);
+    while (!channel.empty() && channel[channel.size() - 1] == ' ')
+        channel.erase(channel.size() - 1);
 
     std::map<std::string, Channel>::iterator it = _channels.find(channel);
     if (it == _channels.end()) {
+        std::string nick = getClientNickOrDefault(client_fd);
+        std::string err = ":ft_irc 403 " + nick + " " + channel + " :No such channel\r\n";
+        send(client_fd, err.c_str(), err.size(), 0);
         std::cout << "Channel was not found for the name: "
                     << channel << std::endl;
         return;
     }
+    const std::map<int, std::string> &users = it->second.getUsers();
+    if (users.find(client_fd) == users.end())
+    {
+        std::string nick = getClientNickOrDefault(client_fd);
+        std::string err = ":ft_irc 442 " + nick + " " + channel + " :You're not on that channel\r\n";
+        send(client_fd, err.c_str(), err.size(), 0);
+        return;
+    }
     if (topic.empty()) {
-        std::cout << "The current topic of the channel " << channel
-                    << " is: " << it->second.getTopic() << std::endl;
+        sendTopicReply(client_fd, channel, it->second);
         return;
     }
     it->second.setTopic(topic);
+    std::string topicMsg = makePrefix(client_fd) + " TOPIC " + channel + " :" + topic + "\r\n";
+    std::map<int, std::string>::const_iterator uit = users.begin();
+    std::map<int, std::string>::const_iterator uite = users.end();
+    while (uit != uite)
+    {
+        send(uit->first, topicMsg.c_str(), topicMsg.size(), 0);
+        ++uit;
+    }
     std::cout << "The topic of the channel " << channel << " has been set to: " << topic << std::endl;
 }
 
@@ -68,28 +88,44 @@ void Server::handleOperatorCommands(int client_fd, const std::string& message)
         std::string channel  = params.substr(0, params.find(' '));
         std::string nickname = params.substr(params.find(' ') + 1);
 
+        std::map<std::string, Channel>::iterator it_channel = _channels.find(channel);
+        if (it_channel == _channels.end())
+        {
+            std::string nick = getClientNickOrDefault(client_fd);
+            std::string err = ":ft_irc 403 " + nick + " " + channel + " :No such channel\r\n";
+            send(client_fd, err.c_str(), err.size(), 0);
+            std::cout << "The channel was not found for the name: " << channel << std::endl;
+            return;
+        }
+
+        int target_fd = -1;
         std::map<int, std::string>::iterator it = _clientNicknames.begin();
         std::map<int, std::string>::iterator ite = _clientNicknames.end();
-        std::map<std::string, Channel>::iterator it_channel = _channels.find(channel);
-        bool found = false;
-        if (it_channel != _channels.end()) {
-            while (it != ite) {
-                if (it->second == nickname) {
-                    it_channel->second.setInvitedUser(it->first, nickname);
-                    std::string inviteMsg = "You have been invited to join " + channel + "\r\n";
-                    send(it->first, inviteMsg.c_str(), inviteMsg.length(), 0);
-                    std::cout << "Client fd " << it->first << " has been invited to the channel: " << channel << std::endl;
-                    found = true;
-                    break;
-                }
-                it++;
+        while (it != ite) {
+            if (it->second == nickname) {
+                target_fd = it->first;
+                break;
             }
-        } else {
-            std::cout << "The channel was not found for the name: " << channel << std::endl;
+            it++;
         }
-        if (!found) {
+
+        if (target_fd == -1)
+        {
+            std::string nick = getClientNickOrDefault(client_fd);
+            std::string err = ":ft_irc 401 " + nick + " " + nickname + " :No such nick/channel\r\n";
+            send(client_fd, err.c_str(), err.size(), 0);
             std::cout << "The client was not found for the nickname: " << nickname << std::endl;
+            return;
         }
+
+        it_channel->second.setInvitedUser(target_fd, nickname);
+        std::string inviter = getClientNickOrDefault(client_fd);
+
+        std::string confirm = ":ft_irc 341 " + inviter + " " + nickname + " " + channel + "\r\n";
+        send(client_fd, confirm.c_str(), confirm.size(), 0);
+
+        std::string inviteMsg = makePrefix(client_fd) + " INVITE " + nickname + " :" + channel + "\r\n";
+        send(target_fd, inviteMsg.c_str(), inviteMsg.size(), 0);
     }
     else if (message.rfind("MODE ", 0) == 0) {
         handleModeCommand(client_fd, message);
