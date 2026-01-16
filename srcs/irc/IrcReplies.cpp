@@ -124,6 +124,11 @@ void Server::sendChannelPrivmsg(int client_fd, const std::string &target, const 
 {
     std::map<std::string, Channel>::iterator it = _channels.find(target);
     if (it == _channels.end()) {
+        std::string nick = getClientNickOrDefault(client_fd);
+        std::string err  = ":ft_irc 403 " + nick + " " + target
+                        + " :No such channel\r\n";
+        send(client_fd, err.c_str(), err.size(), 0);
+
         std::cout << "The channel was not found for the name: "
                 << target << std::endl;
         return;

@@ -165,6 +165,11 @@ void Server::handleClientCommand(int client_fd, const std::string& message)
              input.cmd == "TOPIC") {
         if (input.params.empty())
         {
+            std::string nick = getClientNickOrDefault(client_fd);
+            std::string err  = ":ft_irc 461 " + nick + " "
+                            + input.cmd + " :Not enough parameters\r\n";
+            send(client_fd, err.c_str(), err.size(), 0);
+
             std::cout << "Missing channel parameter for command "
                     << input.cmd << " from fd " << client_fd << std::endl;
             return;
@@ -173,9 +178,15 @@ void Server::handleClientCommand(int client_fd, const std::string& message)
         std::map<std::string, Channel>::iterator it = _channels.find(channel);
         if (it == _channels.end())
         {
+            std::string nick = getClientNickOrDefault(client_fd);
+            std::string err  = ":ft_irc 403 " + nick + " "
+                            + channel + " :No such channel\r\n";
+            send(client_fd, err.c_str(), err.size(), 0);
+
             std::cout << "The channel was not found for the name: "
                     << channel << std::endl;
             return;
+
         }
 
         bool isOperator = (it->second.getOperators().find(client_fd) != it->second.getOperators().end());
@@ -184,6 +195,11 @@ void Server::handleClientCommand(int client_fd, const std::string& message)
             if ((isOperator || !it->second.getT()) || no_params) {
                 handleTopicCommand(client_fd, input);
             } else {
+                std::string nick = getClientNickOrDefault(client_fd);
+                std::string err  = ":ft_irc 482 " + nick + " " + channel
+                                + " :You're not channel operator\r\n";
+                send(client_fd, err.c_str(), err.size(), 0);
+
                 std::cout << "Client fd " << client_fd
                         << " is not operator and the channel "
                         << channel << " is in mode +t (TOPIC restricted)."
@@ -192,11 +208,17 @@ void Server::handleClientCommand(int client_fd, const std::string& message)
         } else {
             if (!isOperator)
             {
+                std::string nick = getClientNickOrDefault(client_fd);
+                std::string err  = ":ft_irc 482 " + nick + " " + channel
+                                + " :You're not channel operator\r\n";
+                send(client_fd, err.c_str(), err.size(), 0);
+
                 std::cout << "Client fd " << client_fd
                         << " is not operator on the channel "
                         << channel << " for the command: "
                         << input.cmd << std::endl;
-                return;
+    return;
+
             }
             if (input.cmd == "MODE")
                 handleModeCommand(client_fd, input);

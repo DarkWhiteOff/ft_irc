@@ -4,7 +4,13 @@ void Server::handleModeCommand(int client_fd, const UserInput &input)
 {
     (void) client_fd;
      if (input.params.size() < 2)
+    {
+        std::string nick = getClientNickOrDefault(client_fd);
+        std::string err  = ":ft_irc 461 " + nick
+                           + " MODE :Not enough parameters\r\n";
+        send(client_fd, err.c_str(), err.size(), 0);
         return;
+    }
     std::string channel     = input.params[0];
     std::string modeString  = input.params[1];
 

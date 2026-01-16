@@ -62,23 +62,35 @@ void Server::handleOperatorCommands(int client_fd, const UserInput &input)
 {
     if (input.cmd == "KICK") {
         if (input.params.size() < 2)
+        {
+            std::string nick = getClientNickOrDefault(client_fd);
+            std::string err  = ":ft_irc 461 " + nick
+                            + " KICK :Not enough parameters\r\n";
+            send(client_fd, err.c_str(), err.size(), 0);
             return;
+        }
         std::string channel  = input.params[0];
         std::string nickname = input.params[1];
 
         std::map<std::string, Channel>::iterator it = _channels.find(channel);
         if (it == _channels.end())
         {
+            std::string nick = getClientNickOrDefault(client_fd);
+            std::string err  = ":ft_irc 403 " + nick + " "
+                            + channel + " :No such channel\r\n";
+            send(client_fd, err.c_str(), err.size(), 0);
+
             std::cout << "The channel was not found for the name: "
-                      << channel << std::endl;
+                    << channel << std::endl;
             return;
         }
         
+        int target_fd = -1;
         std::map<int, std::string>::const_iterator user_it = it->second.getUsers().begin();
         std::map<int, std::string>::const_iterator user_ite = it->second.getUsers().end();
         while (user_it != user_ite) {
             if (user_it->second == nickname) {
-                int target_fd = user_it->first;
+                target_fd = user_it->first;
                 it->second.removeUser(target_fd);
                 it->second.removeOperator(target_fd);
                 send(target_fd, "You have been kicked from the channel.\r\n", 41, 0);
@@ -87,10 +99,25 @@ void Server::handleOperatorCommands(int client_fd, const UserInput &input)
             }
             user_it++;
         }
+
+        if (target_fd == -1)
+        {
+            std::string nick = getClientNickOrDefault(client_fd);
+            std::string err  = ":ft_irc 441 " + nick + " "
+                            + nickname + " " + channel
+                            + " :They aren't on that channel\r\n";
+            send(client_fd, err.c_str(), err.size(), 0);
+        }
     }
     else if (input.cmd == "INVITE") {
         if (input.params.size() < 2)
+        {
+            std::string nick = getClientNickOrDefault(client_fd);
+            std::string err  = ":ft_irc 461 " + nick
+                            + " INVITE :Not enough parameters\r\n";
+            send(client_fd, err.c_str(), err.size(), 0);
             return;
+        }
         std::string channel  = input.params[0];
         std::string nickname = input.params[1];
 

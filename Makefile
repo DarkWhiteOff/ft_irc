@@ -8,7 +8,7 @@ SRC = \
     srcs/irc/HandleJoinPart.cpp \
     srcs/irc/HandleOpsCommand.cpp \
     srcs/irc/HandleModeCommand.cpp \
-    srcs/irc/IrcReplies.cpp.cpp \
+    srcs/irc/IrcReplies.cpp \
     srcs/utils/Exception.cpp \
     srcs/main.cpp
 HEADERS = includes/Server.hpp includes/Channel.hpp
