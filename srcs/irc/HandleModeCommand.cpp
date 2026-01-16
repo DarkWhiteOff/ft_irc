@@ -1,22 +1,12 @@
 #include "Server.hpp"
 
-void Server::handleModeCommand(int client_fd, const std::string& message)
+void Server::handleModeCommand(int client_fd, const UserInput &input)
 {
     (void) client_fd;
-    std::string params = message.substr(5);
-    std::string channel;
-    std::string mode;
-    std::string mode_args;
-    if (params.find(' ') == std::string::npos)
+     if (input.params.size() < 2)
         return;
-    channel = params.substr(0, params.find(' '));
-    std::string rest = params.substr(params.find(' ') + 1);
-    if (rest.find(' ') == std::string::npos) {
-        mode = rest;
-    } else {
-        mode      = rest.substr(0, rest.find(' '));
-        mode_args = rest.substr(rest.find(' ') + 1);
-    }
+    std::string channel     = input.params[0];
+    std::string modeString  = input.params[1];
 
     std::map<std::string, Channel>::iterator it = _channels.find(channel);
     if (it == _channels.end()) {
@@ -24,89 +14,126 @@ void Server::handleModeCommand(int client_fd, const std::string& message)
                   << channel << std::endl;
         return;
     }
-    for (size_t i = 0; i < mode.length(); ++i) {
-        if (mode[i] == '+') {
-            ++i;
-            while (i < mode.length()) {
-                switch (mode[i]) {
-                    case 'i':
-                        it->second.setI(true);
-                        break;
-                    case 't':
-                        it->second.setT(true);
-                        break;
-                    case 'k':
-                        it->second.setK(true, mode_args);
-                        break;
-                    case 'o': {
-                        std::map<int, std::string>::const_iterator it_users = it->second.getUsers().begin();
-                        std::map<int, std::string>::const_iterator ite_users = it->second.getUsers().end();
-                        bool user_found = false;
-                        while (it_users != ite_users) {
-                            if (it_users->second == mode_args) {
-                                it->second.setOperator(it_users->first, mode_args);
-                                user_found = true;
-                                break;
-                            }
-                            ++it_users;
-                        }
-                        if (!user_found) {
-                            std::cout << "The user " << mode_args
-                                        << " is not in the channel " << channel
-                                        << std::endl;
-                        }
-                        break;
-                    }
-                    case 'l':
-                        it->second.setL(true, std::atoi(mode_args.c_str()));
-                        break;
-                    default:
-                        break;
+    std::vector<std::string> modeParams;
+    for (size_t i = 2; i < input.params.size(); ++i)
+        modeParams.push_back(input.params[i]);
+
+    size_t paramIndex = 0;
+    bool status = true;
+
+    for (size_t i = 0; i < modeString.size(); ++i) {
+        char c = modeString[i];
+
+        if (c == '+')
+        {
+            status = true;
+            continue;
+        }
+        if (c == '-')
+        {
+            status = false;
+            continue;
+        }
+
+        switch (c)
+        {
+            case 'i':
+                it->second.setI(status);
+                break;
+            case 't':
+                it->second.setT(status);
+                break;
+            case 'k':
+            {
+                if (status)
+                {
+                    if (paramIndex >= modeParams.size())
+                        return;
+                    std::string key = modeParams[paramIndex++];
+                    it->second.setK(true, key);
                 }
-                ++i;
-            }
-            --i;
-        } else if (mode[i] == '-') {
-            ++i;
-            while (i < mode.length()) {
-                switch (mode[i]) {
-                    case 'i':
-                        it->second.setI(false);
-                        break;
-                    case 't':
-                        it->second.setT(false);
-                        break;
-                    case 'k':
-                        it->second.setK(false, "");
-                        break;
-                    case 'o': {
-                        std::map<int, std::string>::const_iterator it_ops = it->second.getOperators().begin();
-                        std::map<int, std::string>::const_iterator ite_ops = it->second.getOperators().end();
-                        bool op_found = false;
-                        while (it_ops != ite_ops) {
-                            if (it_ops->second == mode_args) {
-                                it->second.removeOperator(it_ops->first);
-                                op_found = true;
-                                break;
-                            }
-                            ++it_ops;
-                        }
-                        if (!op_found) {
-                            std::cout << "The operator " << mode_args
-                                        << " is not in the channel " << channel
-                                        << std::endl;
-                        }
-                        break;
-                    }
-                    case 'l':
-                        it->second.setL(false, 0);
-                        break;
-                    default:
-                        break;
+                else
+                {
+                    it->second.setK(false, "");
                 }
-                ++i;
+                break;
             }
-            --i;
+            case 'o':
+            {
+                if (paramIndex >= modeParams.size())
+                    return;
+
+                std::string nick = modeParams[paramIndex++];
+                const std::map<int, std::string> &users = it->second.getUsers();
+                const std::map<int, std::string> &ops   = it->second.getOperators();
+
+                if (status)
+                {
+                    std::map<int, std::string>::const_iterator uit  = users.begin();
+                    std::map<int, std::string>::const_iterator uite = users.end();
+                    bool user_found = false;
+
+                    while (uit != uite)
+                    {
+                        if (uit->second == nick)
+                        {
+                            it->second.setOperator(uit->first, nick);
+                            user_found = true;
+                            break;
+                        }
+                        ++uit;
+                    }
+                    if (!user_found)
+                    {
+                        std::cout << "The user " << nick
+                                  << " is not in the channel " << channel
+                                  << std::endl;
+                    }
+                }
+                else
+                {
+                    std::map<int, std::string>::const_iterator oit  = ops.begin();
+                    std::map<int, std::string>::const_iterator oite = ops.end();
+                    bool op_found = false;
+
+                    while (oit != oite)
+                    {
+                        if (oit->second == nick)
+                        {
+                            it->second.removeOperator(oit->first);
+                            op_found = true;
+                            break;
+                        }
+                        ++oit;
+                    }
+                    if (!op_found)
+                    {
+                        std::cout << "The operator " << nick
+                                  << " is not in the channel " << channel
+                                  << std::endl;
+                    }
+                }
+                break;
+            }
+            case 'l':
+            {
+                if (status)
+                {
+                    if (paramIndex >= modeParams.size())
+                        return;
+
+                    int limit = std::atoi(modeParams[paramIndex++].c_str());
+                    if (limit > 0)
+                        it->second.setL(true, limit);
+                }
+                else
+                {
+                    it->second.setL(false, 0);
+                }
+                break;
+            }
+            default:
+                break;
         }
     }
 }

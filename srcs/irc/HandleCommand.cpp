@@ -156,33 +156,33 @@ void Server::handleClientCommand(int client_fd, const std::string& message)
         reply += "\r\n";
         send(client_fd, reply.c_str(), reply.size(), 0);
     }
-    else if (input.cmd == "WHO" || input.cmd == "WHOIS") { // à gérer
+    else if (input.cmd == "WHO" || input.cmd == "WHOIS") {
         return;
     }
     else if (input.cmd == "KICK" ||
              input.cmd == "INVITE" ||
              input.cmd == "MODE" ||
              input.cmd == "TOPIC") {
-        std::string params = message.substr(message.find(' ') + 1);
-        std::string channel;
-
-        bool no_params = false;
-        if (params.find(' ') == std::string::npos) {
-            no_params = true;
-            channel = params;
-        } else
-            channel = params.substr(0, params.find(' '));
-
-        std::map<std::string, Channel>::iterator it = _channels.find(channel);
-        if (it == _channels.end()) {
-            std::cout << "The channel was not found for the name: "
-                      << channel << std::endl;
-            return ;
+        if (input.params.empty())
+        {
+            std::cout << "Missing channel parameter for command "
+                    << input.cmd << " from fd " << client_fd << std::endl;
+            return;
         }
+        std::string channel = input.params[0];
+        std::map<std::string, Channel>::iterator it = _channels.find(channel);
+        if (it == _channels.end())
+        {
+            std::cout << "The channel was not found for the name: "
+                    << channel << std::endl;
+            return;
+        }
+
         bool isOperator = (it->second.getOperators().find(client_fd) != it->second.getOperators().end());
-        if (message.rfind("TOPIC ", 0) == 0) {
+        if (input.cmd == "TOPIC") {
+            bool no_params = (input.params.size() == 1 && input.trailing.empty());
             if ((isOperator || !it->second.getT()) || no_params) {
-                handleTopicCommand(client_fd, message);
+                handleTopicCommand(client_fd, input);
             } else {
                 std::cout << "Client fd " << client_fd
                         << " is not operator and the channel "
@@ -190,14 +190,18 @@ void Server::handleClientCommand(int client_fd, const std::string& message)
                         << std::endl;
             }
         } else {
-            if (isOperator) {
-                handleOperatorCommands(client_fd, message);
-            } else {
+            if (!isOperator)
+            {
                 std::cout << "Client fd " << client_fd
-                    << " is not operator on the channel "
-                    << channel << " for the command: "
-                    << message << std::endl;
+                        << " is not operator on the channel "
+                        << channel << " for the command: "
+                        << input.cmd << std::endl;
+                return;
             }
+            if (input.cmd == "MODE")
+                handleModeCommand(client_fd, input);
+            else
+                handleOperatorCommands(client_fd, input);
         }
     }
     else {

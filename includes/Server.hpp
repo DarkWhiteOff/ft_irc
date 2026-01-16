@@ -155,9 +155,9 @@ private:
     void tryRegisterClient(int client_fd);
 
     void handleClientCommand(int client_fd, const std::string &message);
-    void handleOperatorCommands(int client_fd, const std::string &message);
-    void handleModeCommand(int client_fd, const std::string &message);
-    void handleTopicCommand(int client_fd, const std::string &message);
+    void handleOperatorCommands(int client_fd, const UserInput &input);
+    void handleModeCommand(int client_fd, const UserInput &input);
+    void handleTopicCommand(int client_fd, const UserInput &input);
     
     void handleJoinCommand(int client_fd, const UserInput &input);
     void handlePartCommand(int client_fd, const UserInput &input);
