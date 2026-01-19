@@ -41,18 +41,18 @@ bool Server::handleClientCommandLOCK(int client_fd, const UserInput &input, fd_s
         return true;
     }
     return true;
-
 }
 
 void Server::handleClientCommand(int client_fd, const std::string &message, const UserInput &input)
-{    
+{
+    (void) message;
     // DEBUG
-    std::cout << "[DEBUG] Command: " << input.cmd << std::endl;
-    std::cout << "[DEBUG] Params count: " << input.params.size() << std::endl;
-    for (size_t i = 0; i < input.params.size(); i++) {
-        std::cout << "[DEBUG] Param[" << i << "]: " << input.params[i] << std::endl;
-    }
-    std::cout << "[DEBUG] Trailing: " << input.trailing << std::endl;
+    // std::cout << "[DEBUG] Command: " << input.cmd << std::endl;
+    // std::cout << "[DEBUG] Params count: " << input.params.size() << std::endl;
+    // for (size_t i = 0; i < input.params.size(); i++) {
+    //     std::cout << "[DEBUG] Param[" << i << "]: " << input.params[i] << std::endl;
+    // }
+    // std::cout << "[DEBUG] Trailing: " << input.trailing << std::endl;
     // DEBUG
 
     if (input.cmd == "NICK") {
@@ -264,9 +264,5 @@ void Server::handleClientCommand(int client_fd, const std::string &message, cons
             else
                 handleOperatorCommands(client_fd, input);
         }
-    }
-    else {
-        std::cout << "Unknown command received from client fd "
-                  << client_fd << ": " << message << std::endl;
     }
 }
