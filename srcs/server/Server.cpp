@@ -10,10 +10,11 @@ Server::~Server() {
     if (_serverSocket != -1) {
         close(_serverSocket);
     }
-    std::map<int, std::string>::iterator it = _clientBuffers.begin();
-    std::map<int, std::string>::iterator ite = _clientBuffers.end();
+    std::map<int, bool>::iterator it = _clientAuthentifieds.begin();
+    std::map<int, bool>::iterator ite = _clientAuthentifieds.end();
     while (it != ite) {
-        close(it->first);
+        int fd = it->first;
+        close(fd);
         it++;
     }
 }
@@ -47,7 +48,7 @@ void Server::initServerSocket()
         _serverSocket = -1;
         throw SocketListenException();
     }
-    std::cout << "Server initialized on port " << _port << std::endl;
+    std::cout << "Socket initialized on port " << _port << std::endl;
 }
 
 void Server::initFdSet()
@@ -55,7 +56,6 @@ void Server::initFdSet()
     FD_ZERO(&_masterSet);
     FD_SET(_serverSocket, &_masterSet);
     _maxFd = _serverSocket;
-    std::cout << "Server waiting for connections..." << std::endl;
 }
 
 void Server::run() {
@@ -65,8 +65,6 @@ void Server::run() {
     while (g_running) {
         read_fds = _masterSet;
         if (select(_maxFd + 1, &read_fds, NULL, NULL, NULL) < 0) {
-            if (!g_running)
-                break ;
             std::cerr << "Error : Select failure\n";
             break ;
         }

@@ -2,10 +2,9 @@
 
 void Server::handleModeCommand(int client_fd, const UserInput &input)
 {
-    (void) client_fd;
-     if (input.params.size() < 2)
+    std::string nick = getClientNickOrDefault(client_fd);
+    if (input.params.size() < 2)
     {
-        std::string nick = getClientNickOrDefault(client_fd);
         std::string err  = ":ft_irc 461 " + nick
                            + " MODE :Not enough parameters\r\n";
         send(client_fd, err.c_str(), err.size(), 0);
@@ -15,19 +14,14 @@ void Server::handleModeCommand(int client_fd, const UserInput &input)
     std::string modeString  = input.params[1];
 
     std::map<std::string, Channel>::iterator it = _channels.find(channel);
-    if (it == _channels.end()) {
-        std::cout << "Channel was not found for the name: "
-                  << channel << std::endl;
-        return;
-    }
     std::vector<std::string> modeParams;
-    for (size_t i = 2; i < input.params.size(); ++i)
+    for (size_t i = 2; i < input.params.size(); i++)
         modeParams.push_back(input.params[i]);
 
     size_t paramIndex = 0;
     bool status = true;
 
-    for (size_t i = 0; i < modeString.size(); ++i) {
+    for (size_t i = 0; i < modeString.size(); i++) {
         char c = modeString[i];
 
         if (c == '+')
@@ -54,20 +48,28 @@ void Server::handleModeCommand(int client_fd, const UserInput &input)
                 if (status)
                 {
                     if (paramIndex >= modeParams.size())
-                        return;
+                    {
+                        std::string err = ":ft_irc 461 " + nick
+                                        + " MODE :Syntax error (MODE <#channel> +k <key>)\r\n";
+                        send(client_fd, err.c_str(), err.size(), 0);
+                    }
                     std::string key = modeParams[paramIndex++];
                     it->second.setK(true, key);
                 }
                 else
-                {
                     it->second.setK(false, "");
-                }
                 break;
             }
             case 'o':
             {
                 if (paramIndex >= modeParams.size())
+                {
+                    std::string err = ":ft_irc 461 " + nick
+                                    + " MODE :Syntax error (MODE <#channel> "
+                                      "+o/-o <nick>)\r\n";
+                    send(client_fd, err.c_str(), err.size(), 0);
                     return;
+                }
 
                 std::string nick = modeParams[paramIndex++];
                 const std::map<int, std::string> &users = it->second.getUsers();
@@ -87,7 +89,7 @@ void Server::handleModeCommand(int client_fd, const UserInput &input)
                             user_found = true;
                             break;
                         }
-                        ++uit;
+                        uit++;
                     }
                     if (!user_found)
                     {
@@ -110,7 +112,7 @@ void Server::handleModeCommand(int client_fd, const UserInput &input)
                             op_found = true;
                             break;
                         }
-                        ++oit;
+                        oit++;
                     }
                     if (!op_found)
                     {
@@ -126,20 +128,29 @@ void Server::handleModeCommand(int client_fd, const UserInput &input)
                 if (status)
                 {
                     if (paramIndex >= modeParams.size())
+                    {
+                        std::string err = ":ft_irc 461 " + nick
+                                        + " MODE :Syntax error (MODE <#channel> +l <limit>)\r\n";
+                        send(client_fd, err.c_str(), err.size(), 0);
                         return;
 
+                    }
                     int limit = std::atoi(modeParams[paramIndex++].c_str());
                     if (limit > 0)
                         it->second.setL(true, limit);
                 }
                 else
-                {
                     it->second.setL(false, 0);
-                }
                 break;
             }
             default:
+            {
+                std::string unknown(1, c);
+                std::string err = ":ft_irc 472 " + nick + " " + unknown
+                                + " :is unknown mode char\r\n";
+                send(client_fd, err.c_str(), err.size(), 0);
                 break;
+            }
         }
     }
 }

@@ -2,10 +2,11 @@
 
 void Server::handleJoinCommand(int client_fd, const UserInput &input)
 {
-    if (input.params.empty())
+    if (input.params.empty() || input.params.size() > 2)
     {
         std::string nick = getClientNickOrDefault(client_fd);
-        std::string err  = ":ft_irc 461 " + nick + " JOIN :Not enough parameters\r\n";
+        std::string err  = ":ft_irc 461 " + nick
+                        + " JOIN :Syntax error (JOIN <#channel> [key])\r\n";
         send(client_fd, err.c_str(), err.size(), 0);
         return;
     }
@@ -49,7 +50,7 @@ void Server::handleJoinCommand(int client_fd, const UserInput &input)
                 invited_fd = invited_it->first;
                 break;
             }
-            ++invited_it;
+            invited_it++;
         }
 
         if (it->second.getL()) {
@@ -87,7 +88,7 @@ void Server::handleJoinCommand(int client_fd, const UserInput &input)
         }
 
         if (is_invited && invited_fd != -1) {
-            it->second.removeInvitedUser(client_fd);
+            it->second.removeInvitedUser(invited_fd);
         }
 
         it->second.setUser(client_fd, _clientNicknames[client_fd]);
@@ -105,24 +106,31 @@ void Server::handleJoinCommand(int client_fd, const UserInput &input)
 
 void Server::handlePartCommand(int client_fd, const UserInput &input)
 {
+    std::string nick = getClientNickOrDefault(client_fd);
     if (input.params.empty())
     {
-        std::string nick = getClientNickOrDefault(client_fd);
-        std::string err  = ":ft_irc 461 " + nick + " PART :Not enough parameters\r\n";
+        std::string err  = ":ft_irc 461 " + nick + " PART :Syntax error (PART <#channel> [:<reason>])\r\n";
         send(client_fd, err.c_str(), err.size(), 0);
         return;
     }
 
     std::string channel = input.params[0];
+    if (channel.empty() || channel[0] != '#')
+    {
+        std::string err = ":ft_irc 403 " + nick + " " + channel
+                        + " :Invalid channel name. Channel names must start with '#'\r\n";
+        send(client_fd, err.c_str(), err.size(), 0);
+        std::cout << "Invalid channel name received from client fd "
+                  << client_fd << " in PART: " << channel << std::endl;
+        return;
+    }
     std::string reason  = "Leaving";
     if (!input.trailing.empty())
-    {
         reason = input.trailing;
-    }
     else if (input.params.size() > 1)
     {
         reason.clear();
-        for (size_t i = 1; i < input.params.size(); ++i)
+        for (size_t i = 1; i < input.params.size(); i++)
         {
             if (!reason.empty())
                 reason += " ";
@@ -133,7 +141,6 @@ void Server::handlePartCommand(int client_fd, const UserInput &input)
     std::map<std::string, Channel>::iterator it = _channels.find(channel);
     if (it == _channels.end())
     {
-        std::string nick = getClientNickOrDefault(client_fd);
         std::string err = ":ft_irc 403 " + nick + " " + channel + " :No such channel\r\n";
         send(client_fd, err.c_str(), err.size(), 0);
         return;
@@ -142,7 +149,6 @@ void Server::handlePartCommand(int client_fd, const UserInput &input)
     const std::map<int, std::string> &users = it->second.getUsers();
     if (users.find(client_fd) == users.end())
     {
-        std::string nick = getClientNickOrDefault(client_fd);
         std::string err = ":ft_irc 442 " + nick + " " + channel + " :You're not on that channel\r\n";
         send(client_fd, err.c_str(), err.size(), 0);
         return;

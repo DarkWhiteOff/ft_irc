@@ -92,7 +92,7 @@ void Server::sendNamesReply(int client_fd, const std::string &channel, Channel &
             names += "@" + it->second + " ";
         else
             names += it->second + " ";
-        ++it;
+        it++;
     }
     names += "\r\n";
     send(client_fd, names.c_str(), names.length(), 0);

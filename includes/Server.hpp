@@ -19,7 +19,7 @@
 
 #include <csignal>
 #include <sstream>
-static volatile sig_atomic_t g_running = 1;
+extern volatile sig_atomic_t g_running;
 
 struct UserInput {
     std::string              cmd;
@@ -56,7 +56,8 @@ private:
     void removeClient(int client_fd, fd_set &masterSet);
     void tryRegisterClient(int client_fd);
 
-    void handleClientCommand(int client_fd, const std::string &message);
+    bool handleClientCommandLOCK(int client_fd, const UserInput &input, fd_set &masterSet);
+    void handleClientCommand(int client_fd, const std::string &message, const UserInput &input);
     void handleOperatorCommands(int client_fd, const UserInput &input);
     void handleModeCommand(int client_fd, const UserInput &input);
     void handleTopicCommand(int client_fd, const UserInput &input);
