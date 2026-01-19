@@ -106,7 +106,7 @@ void Server::sendJoinReplies(int client_fd, const std::string& channel)
     std::map<std::string, Channel>::iterator it = _channels.find(channel);
 
     std::string prefix = makePrefix(client_fd);
-    std::string joinLine = prefix + " JOIN :" + channel + "\r\n";
+    std::string joinLine = prefix + " JOIN " + channel + "\r\n";
 
     const std::map<int, std::string> &users = it->second.getUsers();
     std::map<int, std::string>::const_iterator user_it = users.begin();

@@ -52,6 +52,7 @@ void Server::handleModeCommand(int client_fd, const UserInput &input)
                         std::string err = ":ft_irc 461 " + nick
                                         + " MODE :Syntax error (MODE <#channel> +k <key>)\r\n";
                         send(client_fd, err.c_str(), err.size(), 0);
+                        return ;
                     }
                     std::string key = modeParams[paramIndex++];
                     it->second.setK(true, key);

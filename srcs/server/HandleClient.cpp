@@ -124,8 +124,7 @@ void Server::handleClientData(int client_fd, fd_set &masterSet, int maxFd)
     int bytes = recv(client_fd, buffer, sizeof(buffer), 0);
     if (bytes <= 0) {
         if (bytes < 0)
-        std::cerr << "Error : Failed to receive data on fd "
-                  << client_fd << std::endl;
+            std::cerr << "Error : Failed to receive data on fd " << client_fd << std::endl;
         removeClient(client_fd, masterSet);
         return ;
     }

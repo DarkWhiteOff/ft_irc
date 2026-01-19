@@ -192,7 +192,7 @@ void Server::handleClientCommand(int client_fd, const std::string &message, cons
             if (input.cmd == "KICK")
                 syntax = "Syntax error (KICK <#channel> <nick>)";
             else if (input.cmd == "INVITE")
-                syntax = "Syntax error (INVITE <nick> <#channel>)";
+                syntax = "Syntax error (INVITE <#channel> <nick>)";
             else if (input.cmd == "MODE")
                 syntax = "Syntax error (MODE <#channel> <modes> [params...])";
             else if (input.cmd == "TOPIC")
