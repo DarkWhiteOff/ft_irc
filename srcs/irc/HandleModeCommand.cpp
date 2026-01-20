@@ -205,7 +205,7 @@ void Server::handleModeCommand(int client_fd, const UserInput &input)
     std::string prefix = makePrefix(client_fd);
     std::string line   = prefix + " MODE " + channel + " " + appliedModes;
 
-    for (size_t i = 0; i < appliedParams.size(); ++i)
+    for (size_t i = 0; i < appliedParams.size(); i++)
     {
         line += " ";
         line += appliedParams[i];
@@ -217,6 +217,6 @@ void Server::handleModeCommand(int client_fd, const UserInput &input)
     while (uit != uite)
     {
         send(uit->first, line.c_str(), line.size(), 0);
-        ++uit;
+        uit++;
     }
 }
