@@ -96,6 +96,8 @@ void Server::handleOperatorCommands(int client_fd, const UserInput &input)
                     << " deleted (no more users)" << std::endl;
             _channels.erase(it);
         }
+        else
+            promoteNewOperatorIfNeeded(channel, it->second);
 
         std::cout << "Client fd " << target_fd
                 << " has been kicked from the channel: "

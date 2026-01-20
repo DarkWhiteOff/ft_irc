@@ -4,19 +4,10 @@ bool Server::handleClientCommandLOCK(int client_fd, const UserInput &input, fd_s
 {
     if (input.cmd == "QUIT")
     {
-        if (!input.params.empty() || !input.trailing.empty())
-        {
-            std::string nick = getClientNickOrDefault(client_fd);
-            std::string err = ":ft_irc 461 " + nick
-                + " QUIT :Syntax error (QUIT)\r\n";
-            send(client_fd, err.c_str(), err.size(), 0);
-            std::cout << "Invalid QUIT from fd " << client_fd << std::endl;
-            return true;
-        }
         removeClient(client_fd, masterSet);
         return false;
     }
-    else if (input.cmd == "PASS") {
+    else if (input.cmd == "PASS" && !_clientAuthentifieds[client_fd]) {
         if (input.params.size() != 1 || !input.trailing.empty())
         {
             std::string nick = getClientNickOrDefault(client_fd);
@@ -45,7 +36,6 @@ bool Server::handleClientCommandLOCK(int client_fd, const UserInput &input, fd_s
 
 void Server::handleClientCommand(int client_fd, const std::string &message, const UserInput &input)
 {
-    (void) message;
     // DEBUG
     // std::cout << "[DEBUG] Command: " << input.cmd << std::endl;
     // std::cout << "[DEBUG] Params count: " << input.params.size() << std::endl;
@@ -185,6 +175,9 @@ void Server::handleClientCommand(int client_fd, const std::string &message, cons
              input.cmd == "MODE" ||
              input.cmd == "TOPIC") {
         std::string nick = getClientNickOrDefault(client_fd);
+        if (input.cmd == "MODE" && !input.params.empty()
+            && input.params[0][0] != '#' && input.params[0] == nick)
+            return;
         if (input.params.empty())
         {
             std::string syntax;
@@ -251,18 +244,16 @@ void Server::handleClientCommand(int client_fd, const std::string &message, cons
                 std::string err  = ":ft_irc 482 " + nick + " " + channel
                                 + " :You're not channel operator\r\n";
                 send(client_fd, err.c_str(), err.size(), 0);
-
-                std::cout << "Client fd " << client_fd
-                        << " is not operator on the channel "
-                        << channel << " for the command: "
-                        << input.cmd << std::endl;
                 return;
-
             }
             if (input.cmd == "MODE")
                 handleModeCommand(client_fd, input);
             else
                 handleOperatorCommands(client_fd, input);
         }
+    }
+    else if (input.cmd != "PASS") {
+        std::cout << "Unknown command received from client fd "
+                  << client_fd << ": " << message << std::endl;
     }
 }

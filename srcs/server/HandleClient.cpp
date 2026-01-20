@@ -24,7 +24,10 @@ void Server::removeClient(int client_fd, fd_set &masterSet)
             _channels.erase(ch_it++);
         }
         else
+        {
+            promoteNewOperatorIfNeeded(ch_it->first, ch_it->second);
             ch_it++;
+        }
     }
 
     _clientBuffers.erase(client_fd);
@@ -144,7 +147,7 @@ void Server::handleClientData(int client_fd, fd_set &masterSet, int maxFd)
             handleClientCommand(client_fd, message, input);
             tryRegisterClient(client_fd);
         }
-        else {
+        else if (input.cmd != "CAP") {
             std::cout << "Client fd " << client_fd
                     << " is not authenticated. Ignored message: "
                     << message << std::endl;

@@ -171,6 +171,8 @@ void Server::handlePartCommand(int client_fd, const UserInput &input)
         std::cout << "Channel " << channel << " deleted (no more users)" << std::endl;
         _channels.erase(it);
     }
+    else
+        promoteNewOperatorIfNeeded(channel, it->second);
 
     std::cout << "Client fd " << client_fd << " left channel: "
               << channel << " with message: " << reason << std::endl;

@@ -18,31 +18,47 @@ void Server::handleModeCommand(int client_fd, const UserInput &input)
     for (size_t i = 2; i < input.params.size(); i++)
         modeParams.push_back(input.params[i]);
 
-    size_t paramIndex = 0;
-    bool status = true;
+    bool  status = true;
+    char  sign   = '+';
+    size_t start = 0;
 
-    for (size_t i = 0; i < modeString.size(); i++) {
+    if (!modeString.empty() && (modeString[0] == '+' || modeString[0] == '-'))
+    {
+        sign   = modeString[0];
+        status = (sign == '+');
+        start  = 1;
+    }
+    else
+    {
+        sign   = '+';
+        status = true;
+        start  = 0;
+    }
+
+    std::string              appliedModes;
+    std::vector<std::string> appliedParams;
+    size_t                   paramIndex = 0;
+    for (size_t i = start; i < modeString.size(); i++) {
         char c = modeString[i];
-
-        if (c == '+')
-        {
-            status = true;
-            continue;
-        }
-        if (c == '-')
-        {
-            status = false;
-            continue;
-        }
 
         switch (c)
         {
             case 'i':
+            {
                 it->second.setI(status);
+                if (appliedModes.empty())
+                    appliedModes += sign;
+                appliedModes += 'i';
                 break;
+            }
             case 't':
+            {
                 it->second.setT(status);
+                if (appliedModes.empty())
+                    appliedModes += sign;
+                appliedModes += 't';
                 break;
+            }
             case 'k':
             {
                 if (status)
@@ -56,9 +72,19 @@ void Server::handleModeCommand(int client_fd, const UserInput &input)
                     }
                     std::string key = modeParams[paramIndex++];
                     it->second.setK(true, key);
+
+                    if (appliedModes.empty())
+                        appliedModes += sign;
+                    appliedModes += 'k';
+                    appliedParams.push_back(key);
                 }
                 else
+                {
                     it->second.setK(false, "");
+                     if (appliedModes.empty())
+                        appliedModes += sign;
+                    appliedModes += 'k';
+                }
                 break;
             }
             case 'o':
@@ -122,6 +148,10 @@ void Server::handleModeCommand(int client_fd, const UserInput &input)
                                   << std::endl;
                     }
                 }
+                if (appliedModes.empty())
+                    appliedModes += sign;
+                appliedModes += 'o';
+                appliedParams.push_back(nick);
                 break;
             }
             case 'l':
@@ -136,12 +166,25 @@ void Server::handleModeCommand(int client_fd, const UserInput &input)
                         return;
 
                     }
-                    int limit = std::atoi(modeParams[paramIndex++].c_str());
-                    if (limit > 0)
-                        it->second.setL(true, limit);
+                    std::string limitStr = modeParams[paramIndex++];
+                    int limit = std::atoi(limitStr.c_str());
+                    if (limit <= 0)
+                        break;
+                    
+                    it->second.setL(true, limit);
+
+                    if (appliedModes.empty())
+                        appliedModes += sign;
+                    appliedModes += 'l';
+                    appliedParams.push_back(limitStr);
                 }
                 else
+                {
                     it->second.setL(false, 0);
+                    if (appliedModes.empty())
+                        appliedModes += sign;
+                    appliedModes += 'l';
+                }
                 break;
             }
             default:
@@ -153,5 +196,27 @@ void Server::handleModeCommand(int client_fd, const UserInput &input)
                 break;
             }
         }
+    }
+    if (appliedModes.empty())
+        return;
+
+    const std::map<int, std::string> &users = it->second.getUsers();
+
+    std::string prefix = makePrefix(client_fd);
+    std::string line   = prefix + " MODE " + channel + " " + appliedModes;
+
+    for (size_t i = 0; i < appliedParams.size(); ++i)
+    {
+        line += " ";
+        line += appliedParams[i];
+    }
+    line += "\r\n";
+
+    std::map<int, std::string>::const_iterator uit  = users.begin();
+    std::map<int, std::string>::const_iterator uite = users.end();
+    while (uit != uite)
+    {
+        send(uit->first, line.c_str(), line.size(), 0);
+        ++uit;
     }
 }

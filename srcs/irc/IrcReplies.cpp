@@ -184,3 +184,17 @@ void Server::sendUserPrivmsg(int client_fd, const std::string &target, const std
     send(target_fd, line.c_str(), line.size(), 0);
     std::cout << "Sending private message from " << nick << " to " << target << ": " << text << std::endl;
 }
+
+void Server::promoteNewOperatorIfNeeded(const std::string &channelName, Channel &chan)
+{
+    if (!chan.getOperators().empty())
+        return;
+    const std::map<int, std::string> &users = chan.getUsers();
+    if (users.empty())
+        return;
+    std::map<int, std::string>::const_iterator it = users.begin();
+    chan.setOperator(it->first, it->second);
+
+    std::cout << "Promoted " << it->second
+              << " to operator on channel " << channelName << std::endl;
+}

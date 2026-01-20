@@ -75,6 +75,7 @@ private:
     void sendUserPrivmsg(int client_fd, const std::string &target, const std::string &text);
     void updateNickInChannels(int client_fd, const std::string &oldNick, const std::string &newNick);
     void broadcastNickChange(int client_fd, const std::string &oldNick, const std::string &newNick);
+    void promoteNewOperatorIfNeeded(const std::string &channelName, Channel &chan);
 
     struct UserInput parseCmd(const std::string &msg);
 
